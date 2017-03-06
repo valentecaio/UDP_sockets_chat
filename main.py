@@ -17,5 +17,9 @@ TYPE_UPDATE_LIST = 0x0E
 TYPE_UPDATE_DISCONNECTION = 0x0F
 TYPE_DISCONNECTION_REQUEST = 0x10
 
+def header_creation (headertype):
+    print ('HEADER')
+
 if __name__ == '__main__':
 	pass
+
