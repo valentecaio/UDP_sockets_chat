@@ -35,7 +35,8 @@ def createHeader(headertype, sourceID=0, groupID=0):
 	buf = create_string_buffer(headerLenght)
 	firstByte = generateFirstByte(TYPE_CONNECTION_REQUEST, 0, 0, 0)
 
-	#struct.pack_into('BBH3s', buf, 0, TYPE_CONNECTION_REQUEST, 5, 456, 'abc')
+	return struct.pack_into('BBBH', buf, 0, firstByte,
+					 sourceID, groupID, headerLenght)
 
 if __name__ == '__main__':
 	pass
