@@ -24,14 +24,17 @@ def generateFirstByte(headerType, R, S, A):
 	return (headerType << 3) + (R << 2) + (S << 1) + A
 
 def createHeader(headertype, sourceID, groupID):
+	headerLenght = 0x0000
 	if headertype is TYPE_CONNECTION_REQUEST:
-		buf = create_string_buffer(7)
-		firstByte = generateFirstByte(TYPE_CONNECTION_REQUEST, 0,0,0)
-		struct.pack_into('BBH3s', buf, 0, TYPE_CONNECTION_REQUEST, 5, 456, 'abc')
+		headerLenght = 0x000D
 	elif headertype is TYPE_CONNECTION_ACCEPT:
 		pass
 	elif headertype is TYPE_CONNECTION_REJECT:
 		pass
+	buf = create_string_buffer(headerLenght)
+	firstByte = generateFirstByte(TYPE_CONNECTION_REQUEST, 0, 0, 0)
+
+	#struct.pack_into('BBH3s', buf, 0, TYPE_CONNECTION_REQUEST, 5, 456, 'abc')
 
 if __name__ == '__main__':
 	pass
