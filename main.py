@@ -23,7 +23,7 @@ TYPE_DISCONNECTION_REQUEST = 0x10
 def generateFirstByte(headerType, R, S, A):
 	return (headerType << 3) + (R << 2) + (S << 1) + A
 
-def createHeader(headertype, sourceID, groupID):
+def createHeader(headertype, sourceID=0, groupID=0):
 	if headertype is TYPE_CONNECTION_REQUEST:
 		buf = create_string_buffer(7)
 		firstByte = generateFirstByte(TYPE_CONNECTION_REQUEST, 0,0,0)
@@ -32,7 +32,9 @@ def createHeader(headertype, sourceID, groupID):
 		pass
 	elif headertype is TYPE_CONNECTION_REJECT:
 		pass
+	buf = create_string_buffer(7)
+		firstByte = generateFirstByte(TYPE_CONNECTION_REQUEST, 0,0,0)
+		struct.pack_into('BBH3s', buf, 0, TYPE_CONNECTION_REQUEST, 5, 456, 'abc')
 
 if __name__ == '__main__':
 	pass
-
