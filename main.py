@@ -1,3 +1,6 @@
+from ctypes import create_string_buffer
+import struct
+
 # type constants
 TYPE_CONNECTION_REQUEST = 0x00
 TYPE_CONNECTION_ACCEPT = 0x01
@@ -17,8 +20,18 @@ TYPE_UPDATE_LIST = 0x0E
 TYPE_UPDATE_DISCONNECTION = 0x0F
 TYPE_DISCONNECTION_REQUEST = 0x10
 
-def header_creation (headertype):
-    print ('Shit_header')
+def generateFirstByte(headerType, R, S, A):
+	return (headerType << 3) + (R << 2) + (S << 1) + A
+
+def createHeader(headertype, sourceID, groupID):
+	if headertype is TYPE_CONNECTION_REQUEST:
+		buf = create_string_buffer(7)
+		firstByte = generateFirstByte(TYPE_CONNECTION_REQUEST, 0,0,0)
+		struct.pack_into('BBH3s', buf, 0, TYPE_CONNECTION_REQUEST, 5, 456, 'abc')
+	elif headertype is TYPE_CONNECTION_ACCEPT:
+		pass
+	elif headertype is TYPE_CONNECTION_REJECT:
+		pass
 
 if __name__ == '__main__':
 	pass
