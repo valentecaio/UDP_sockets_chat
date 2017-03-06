@@ -23,14 +23,15 @@ TYPE_DISCONNECTION_REQUEST = 0x10
 def generateFirstByte(headerType, R, S, A):
 	return (headerType << 3) + (R << 2) + (S << 1) + A
 
-def createHeader(headertype, sourceID=0, groupID=0):
+def createHeader(headertype, sourceID=0, groupID=0, headerLength=0):
 	headerLenght = 0x0000
 	if headertype is TYPE_CONNECTION_REQUEST:
 		headerLenght = 0x000D
 	elif headertype is TYPE_CONNECTION_ACCEPT:
-		pass
+		headerLenght = 0x0007
 	elif headertype is TYPE_CONNECTION_REJECT:
-		pass
+		headerLenght = 0x0006
+	elif headertype =
 
 	buf = create_string_buffer(headerLenght)
 	firstByte = generateFirstByte(TYPE_CONNECTION_REQUEST, 0, 0, 0)
