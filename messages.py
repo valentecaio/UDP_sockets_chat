@@ -245,32 +245,12 @@ def acknowledgement(type, S, sourceID):
 	struct.pack_into('>BBBH', buf, 0, firstByte, sourceID, 0, headerLength)
 	return buf
 
+if __name__ == '__main__':
+	pass
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+	### examples ###
 
 	# Sender
 	#buf = ctypes.create_string_buffer(7)
 	# put data into the buffer
 	#struct.pack_into('>B3sBH', buf, 0, 0b00000010, b'abc', 2, 455)
-
-if __name__ == '__main__':
-	pass
