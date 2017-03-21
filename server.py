@@ -1,52 +1,72 @@
 import socket
 from sys import argv
 from time import sleep
+import threading
 import messages
 
 clients = []
+server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
 
-def listen_and_connect(s):
-    print('Waiting for connection...')
-    s.listen(1)
-    conn, addr = s.accept()
-    client = {'name': 'valente', 'socket': conn, 'addr': addr}
-    print('Connected to a new client:\n\t', client['name'], client['addr'])
-    clients.append(client)
+# add client to clients list
+def add_client(sock, addr):
+	client = {'id': len(clients), 'socket': sock, 'addr': addr}
+	clients.append(client)
+	print('Connected to a new client: \t', client['id'], client['addr'])
 
 
 def send_msg(msg, receivers):
-    msg = msg.encode('utf-8')
-    for client in receivers:
-        client['socket'].sendall(msg)
-        print("Sent msg '" + msg.decode() + "' to client " + client['name'])
+	msg = msg.encode('utf-8')
+	for client in receivers:
+		client['socket'].sendall(msg)
+		print("Sent msg '" + msg.decode() + "' to client " + str(client['id']))
 
 
-def start_server(ip = 'localhost'):
-    # instantiate socket and bind it to localhost
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    address = (ip, 1212)
-    s.bind(address)
-    print("Server started at address", address)
-    return s
+def start_server():
+	# instantiate socket and bind it to localhost
+	address = ('localhost', 1212)
+	server_socket.bind(address)
+	print("Server started at address", address)
+	return server_socket
 
 
-def run_server(s):
-    # wait for client to connect
-    listen_and_connect(s)
-    listen_and_connect(s)
+''' thread functions '''
 
-    while 1:
-        received_data = clients[0]['socket'].recv(1024).decode()
-        if not received_data: break
-        print('Received:', received_data)
+# used by connection listener thread
+# listen to connection requests and accept them
+def listen_connection_requests():
+	while 1:
+		# listen to connection requests and accept them
+		server_socket.listen(1)
+		conn, addr = server_socket.accept()
+		add_client(conn, addr)
 
-        send_msg(received_data, clients)
+
+def main_loop():
+	while 1:
+		for client in clients:
+			received_data = client['socket'].recv(1024).decode()
+			if not received_data: break
+			print('Received:', received_data)
+			send_msg(received_data, clients)
+
+
+def run(s):
+	# start a thread to hang connection requests
+	thread_connection = threading.Thread(target=listen_connection_requests)
+	thread_connection.daemon = True
+	thread_connection.start()
+
+	# start a thread to hang connected users demands
+	thread_main = threading.Thread(target=main_loop)
+	thread_main.daemon = True
+	thread_main.start()
+
+	# hang program execution
+	while 1:
+		sleep(10)
+
 
 if __name__ == '__main__':
-    try:
-        ip = argv[1]
-        s = start_server(ip)
-    except:
-        s = start_server()
-    run_server(s)
+	server_socket = start_server()
+	run(server_socket)

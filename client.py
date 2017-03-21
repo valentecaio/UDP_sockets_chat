@@ -11,7 +11,7 @@ address_server = ('localhost', 1212)
 # used by user interface thread
 def main_loop():
 	while 1:
-		msg = input("Type message to send\n")
+		msg = input("Type message to send: \t")
 		msg = msg.encode('utf-8')
 		s.send(msg)
 
@@ -95,13 +95,6 @@ def start_client(ip='localhost', server_port=1212):
 		msg = msg.encode('utf-8')
 		s.send(msg)
 
-if __name__ == '__main__':
-	try:
-		ip = argv[1]
-		server_port = argv[2]
-		start_client(ip, int(server_port))
-	except:
-		start_client()
 
 
 '''
