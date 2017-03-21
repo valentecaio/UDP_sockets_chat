@@ -2,6 +2,7 @@ import ctypes
 import struct
 import argparse
 
+
 # type constants
 TYPE_CONNECTION_REQUEST = 0x00
 TYPE_CONNECTION_ACCEPT = 0x01
@@ -26,10 +27,15 @@ TYPE_DISCONNECTION_REQUEST = 0x10
 def generateFirstByte(headerType, R, S, A):
 	return (headerType << 3) + (R << 2) + (S << 1) + A
 
-# not implemented yet
+# The field for the username consists of 8 byte. This function adds spaces which can't be part of an actual username.
 def usernameWithPadding(username):
-	# The field for the username consists of 8 byte. Should be used to at zeros if shorter.
-	username_filler = 8 - len(username)
+	username = username.ljust(8)
+
+	return username
+
+# This function removes the spaces that have been added for the transmission.
+def usernameWithoutPadding(username):
+	username = username.strip()
 	return username
 
 
@@ -43,14 +49,10 @@ def createConnectionRequest(S, username):
 	headerLength = 0x000D
 	sourceID = 0
 	groupId = 0
-
 	firstByte = generateFirstByte(TYPE_CONNECTION_REQUEST,0,S,0)
-
 	buf = ctypes.create_string_buffer(headerLength)
-
-	# There might be a problem because in there is a "b" in front of the string in the example to indicate UTF-8.
-	# Can't use that here because its a variable and not a string like 'abc'.
-	struct.pack_into('>BBBH8s', buf, 0, firstByte, sourceID, groupId, headerLength, usernameWithPadding(username))
+	packed_username = bytes(usernameWithPadding(username), 'utf8')															#solved string packing problem
+	struct.pack_into('>BBBH8s', buf, 0, firstByte, sourceID, groupId, headerLength, packed_username) #ATTENTION!! disabeled filling function for the string to test!
 	return buf
 
 
@@ -111,7 +113,7 @@ def createUserListResponse(S, sourceID, userList):
 	# Filling the buffer with the list elements using the offset of struct.pack_into. Wanted to use xrange but couldn't be resolved.
 	for i in range(len(userList)):
 		offset = (5+i*16)*8		#Calculating the offset in bit.
-		struct.pack_into('>8sBBIH', buf, offset, userList[i][1], userList[i][2], userList[i][3], userList[i][4], userList[i][5])
+		struct.pack_into('>8sBBIH', buf, offset, bytes(usernameWithPadding(userList[i][1]), 'utf8'), userList[i][2], userList[i][3], userList[i][4], userList[i][5]) # The first element in each list is always a string. Thats why it is always packed with the "bytes()" command.
 	return buf
 
 
@@ -246,7 +248,8 @@ def acknowledgement(type, S, sourceID):
 	return buf
 
 if __name__ == '__main__':
-	pass
+		pass
+
 
 	### examples ###
 

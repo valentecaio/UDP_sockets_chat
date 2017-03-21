@@ -3,25 +3,37 @@ import socket
 from time import sleep
 from sys import argv
 import threading
-
+import ctypes
+import struct
+import messages
 address_server = ('localhost', 1212)
 
 ''' thread functions '''
 
 # used by user interface thread
+#This is a test function. To start the test you have to type "test". A connection request will be packed and send.
 def main_loop():
+
 	while 1:
 		msg = input("Type message to send: \t")
-		msg = msg.encode('utf-8')
-		s.send(msg)
+		#msg = msg.encode('utf-8')
+		if msg=='test':
+			msg = messages.createConnectionRequest(0, 'asdfghjk')
+			s.send(msg)
 
 
 # used by server listener thread
+#This is a test to unpack a recieved packet and show it.
 def listen_server():
 	print('listening server')
 	while 1:
-		received_msg = s.recv(1024)
-		print('Received:', received_msg.decode())
+		msg = s.recv(1024)
+		msg = struct.unpack('>BBBH8s', msg)
+		print(msg[0])
+		print(msg[1])
+		print(msg[2])
+		print(msg[3])
+		print(msg[4].decode('UTF-8'))
 
 
 def run(s):

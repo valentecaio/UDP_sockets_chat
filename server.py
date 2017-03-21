@@ -3,6 +3,8 @@ from sys import argv
 from time import sleep
 import threading
 import messages
+import ctypes
+import struct
 
 clients = []
 server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -15,11 +17,22 @@ def add_client(sock, addr):
 	print('Connected to a new client: \t', client['id'], client['addr'])
 
 
+#This is a test to unpack and read the contant. After that another packet is packed (the same one in this case) and send again to all clients.
 def send_msg(msg, receivers):
-	msg = msg.encode('utf-8')
+	#msg = msg.encode('utf-8')
+	msg = struct.unpack('>BBBH8s', msg)
+	print(msg[0])
+	print(msg[1])
+	print(msg[2])
+	print(msg[3])
+	print(msg[4].decode('UTF-8'))
+	msg = messages.createConnectionRequest(0, 'asdfghjk')
+
+
+
 	for client in receivers:
 		client['socket'].sendall(msg)
-		print("Sent msg '" + msg.decode() + "' to client " + str(client['id']))
+		#print("Sent msg '" + msg.decode() + "' to client " + str(client['id']))
 
 
 def start_server():
@@ -45,7 +58,7 @@ def listen_connection_requests():
 def main_loop():
 	while 1:
 		for client in clients:
-			received_data = client['socket'].recv(1024).decode()
+			received_data = client['socket'].recv(1024)
 			if not received_data: break
 			print('Received:', received_data)
 			send_msg(received_data, clients)
