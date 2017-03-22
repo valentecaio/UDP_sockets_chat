@@ -3,6 +3,8 @@ from sys import argv
 from time import sleep
 import threading
 import messages
+import ctypes
+import struct
 
 clients = []
 UDPSock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -22,8 +24,26 @@ def add_client(addr):
 
 
 # receive a normal string, code it and send to receivers list
-def send_msg(msg, receivers):
+def send_string(msg, receivers):
 	msg = msg.encode('utf-8')
+	for client in receivers:
+		UDPSock.sendto(msg, client['addr'])
+		print("Sent msg '" + msg.decode() + "' to client " + str(client['id']))
+
+
+# This is a test to unpack and read the contant.
+# After that another packet is packed (the same one in this case) and send again to all clients.
+# TODO: check the merge of this function
+def send_msg(msg, receivers):
+	#msg = msg.encode('utf-8')
+	msg = struct.unpack('>BBBH8s', msg)
+	print(msg[0])
+	print(msg[1])
+	print(msg[2])
+	print(msg[3])
+	print(msg[4].decode('UTF-8'))
+	msg = messages.createConnectionRequest(0, 'asdfghjk')
+
 	for client in receivers:
 		UDPSock.sendto(msg, client['addr'])
 		print("Sent msg '" + msg.decode() + "' to client " + str(client['id']))
@@ -51,7 +71,7 @@ def receive_data():
 		print(reponse, 'from', addr)
 
 		# send answer
-		send_msg(reponse, clients)
+		send_string(reponse, clients)
 
 
 def send_data():
@@ -59,7 +79,11 @@ def send_data():
 	'''
 		while 1:
 		for client in clients:
+<<<<<<< HEAD
 			received_data = client['socket'].recvfrom(1024).decode()
+=======
+			received_data = client['socket'].recv(1024)
+>>>>>>> 52b4aafb139c7fe33f2affd82cd12beddaf70f06
 			if not received_data: break
 			print('Received:', received_data)
 			send_msg(received_data, clients)
