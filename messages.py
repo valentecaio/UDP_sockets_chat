@@ -30,7 +30,6 @@ def generateFirstByte(headerType, R, S, A):
 # The field for the username consists of 8 byte. This function adds spaces which can't be part of an actual username.
 def usernameWithPadding(username):
 	username = username.ljust(8)
-
 	return username
 
 # This function removes the spaces that have been added for the transmission.
@@ -246,6 +245,21 @@ def acknowledgement(type, S, sourceID):
 	buf = ctypes.create_string_buffer(headerLength)
 	struct.pack_into('>BBBH', buf, 0, firstByte, sourceID, 0, headerLength)
 	return buf
+
+
+''' pack and unpack functions '''
+
+
+# by now, this function is only working for connection requests
+def unpack_protocol_header(msg):
+	firstByte, sourceID, groupID, lenght, a = struct.unpack('>BBBH8s', msg)
+	type = firstByte >> 3
+	R = firstByte >> 2 & 1
+	S = firstByte >> 1 & 1
+	A = firstByte & 1
+	return {'A': A, 'S': S, R: 'R', 'type': type, 'sourceID': sourceID,
+			'groupID': groupID, 'lenght': lenght}
+
 
 if __name__ == '__main__':
 		pass

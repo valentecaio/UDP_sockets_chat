@@ -60,18 +60,24 @@ def start_server():
 def receive_data():
 	while 1:
 		# receive message
-		received_data, addr = UDPSock.recvfrom(1024)
-		if not received_data: break
+		data, addr = UDPSock.recvfrom(1024)
+		if not data: break
 
 		# add client to clients list
 		add_client(addr)
 
+		# this try tests the unpack function
+		try:
+			print(messages.unpack_protocol_header(data))
+		except:
+			pass
+
 		# generate answer and encode it
-		reponse = 'Received "' + received_data.decode() + '"'
-		print(reponse, 'from', addr)
+		response = 'Received "' + data.decode() + '"'
+		print(response, 'from', addr)
 
 		# send answer
-		send_string(reponse, clients)
+		send_string(response, clients)
 
 
 def send_data():
