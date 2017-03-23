@@ -64,24 +64,36 @@ def send_data():
 		unpacked_data = m.unpack_protocol_header(data)
 		msg_type = unpacked_data['type']
 
-		# treat message according to type
-		if msg_type == m.TYPE_CONNECTION_REQUEST:
-			username = unpacked_data['content'].decode()
+		# treat acknowledgement messages according to types
+		if unpacked_data['A']:
+			if msg_type == m.TYPE_CONNECTION_ACCEPT:
+				# code enter here when the client send a connectionAccept acknowledgement
+				pass
+			elif msg_type == m.TYPE_USER_LIST_RESPONSE:
+				# code enter here when the client send a userListResponse acknowledgement
+				pass
+			# elif ...
 
-			# add client to clients list
-			client = add_client(addr, username)
+		# treat non-acknowledgement messages
+		else:
+			if msg_type == m.TYPE_CONNECTION_REQUEST:
+				# get username from message content
+				username = unpacked_data['content'].decode().strip()
 
-			# send ConnectionAccept as response
-			response = m.createConnectionAccept(0, client['id'])
-			send_message(response, [client])
+				# add client to clients list
+				client = add_client(addr, username)
 
-		elif msg_type == m.TYPE_ACKNOWLEGEMENT:
-			pass
-		else: # default case, it's here only to help tests
-			print('Received "' + data.decode() + '" from', addr)
+				# send ConnectionAccept as response
+				response = m.createConnectionAccept(0, client['id'])
+				send_message(response, [client])
 
-			# send answer
-			send_message(data, clients)
+			# default case, it's here only to help tests
+			else:
+				print('Received "' + data.decode() + '" from', addr)
+
+				# send answer
+				send_message(data, clients)
+
 
 def run_threads():
 	# start a thread to receive data
