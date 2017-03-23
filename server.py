@@ -36,9 +36,9 @@ def add_client(addr, username):
 
 # receive a coded message and send it to receivers list
 def send_message(msg, receivers):
-	for client in receivers:
+	for id, client in receivers.items():
 		UDPSock.sendto(msg, client['addr'])
-		print("Sent msg to client " + str(client['id']))
+		print("Sent msg to client " + str(id))
 
 
 ''' thread functions '''
@@ -91,7 +91,17 @@ def send_data():
 
 				# send ConnectionAccept as response
 				response = m.createConnectionAccept(0, client['id'])
-				send_message(response, [client])
+				UDPSock.sendto(response, client['addr'])
+
+			elif msg_type == m.TYPE_DATA_MESSAGE:
+				# get message text
+				content = unpacked_data['content']
+				text = content[2:]
+				print("%s: %s" % (unpacked_data['sourceID'], text.decode()))
+
+				# resend it to users in same group
+				# TODO: by now, is sending to everybody
+				send_message(data, clients)
 
 			# default case, it's here only to help tests
 			else:

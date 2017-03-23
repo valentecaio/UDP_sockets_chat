@@ -8,28 +8,35 @@ import messages as m
 
 address_server = ('localhost', 1212)
 UDPsocket = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
-client_id = int()
+client_id = 0
+client_group = 0
 
 ''' thread functions '''
 
 
 # used by user interface thread
-def send_data():
+def read_keyboard():
 	print("Type messages to send: \t")
 	while 1:
-		msg = input("")
+		user_input = input("")
 
-		if 'CONNECT' in msg:
-			username = msg[8:].strip()
+		if 'CONNECT' in user_input:
+			username = user_input[8:].strip()
 			msg = m.createConnectionRequest(0, username)
-		else: 	# to normal strings
-			msg = msg.encode('utf-8')
+
+		elif 'SEND' in user_input:
+			text = user_input[5:].encode('utf-8')
+			msg = m.createDataMessage(0, client_id, client_group, text)
+
+		else:
+			print("This is not a valid command. Type HELP to get some help.")
+			continue
 
 		UDPsocket.sendto(msg, address_server)
 
 
 # used by server listener thread
-def receive_data():
+def main_loop():
 	print('listening server')
 	while 1:
 		try:
@@ -68,11 +75,11 @@ def receive_data():
 
 
 def run_threads():
-	thread_user = threading.Thread(target=send_data)
+	thread_user = threading.Thread(target=read_keyboard)
 	thread_user.daemon = True
 	thread_user.start()
 
-	thread_listen = threading.Thread(target=receive_data)
+	thread_listen = threading.Thread(target=main_loop)
 	thread_listen.daemon = True
 	thread_listen.start()
 

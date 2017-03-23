@@ -119,18 +119,19 @@ def createUserListResponse(S, sourceID, userList):
 # This function builds the Header for a message.
 # Different from create user list for example, the actual data we transmit is not put into the header.
 # Maybe that function has to be changed to pack also the payload into the packet.
-def createDataMessage(S, sourceID, groupID, dataLength):
+def createDataMessage(S, sourceID, groupID, data):
 	headerLength=0x007
+	dataLength = len(data)
 	firstByte = generateFirstByte(TYPE_DATA_MESSAGE, 0, S, 0)
-	buf = ctypes.create_string_buffer(headerLength)
-	struct.pack_into('>BBBHH', buf, 0, firstByte, sourceID, groupID, headerLength, dataLength)
+	buf = ctypes.create_string_buffer(headerLength + dataLength)
+	struct.pack_into('>BBBHH' + str(dataLength) + 's', buf, 0, firstByte, sourceID, groupID, headerLength, dataLength, data)
 	return buf
 
 
 # creates a Group creation Request.
 # The member list is a list of user IDs that should recieve an invitation.
 # The communication type specifies if it is a centralized(0) or a decentralized(1) communication.
-def GroupCreationRequest(S, sourceID, communicationType, memberList):
+def groupCreationRequest(S, sourceID, communicationType, memberList):
 	# group ID for that type of massage is 0 by default (see protocol specification)
 	groupId = 0x00
 	headerLength = 6 + len(memberList)
