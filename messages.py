@@ -252,7 +252,7 @@ def acknowledgement(type, S, sourceID):
 
 # content is the non-header part of the message
 def unpack_protocol_header(msg):
-	firstByte, sourceID, groupID, lenght, content = struct.unpack('>BBBH' + len(msg) -4 + 's', msg)
+	firstByte, sourceID, groupID, lenght, content = struct.unpack('>BBBH' + str(len(msg)-4) + 's', msg)
 	type = firstByte >> 3
 	R = firstByte >> 2 & 1
 	S = firstByte >> 1 & 1
