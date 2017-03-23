@@ -3,7 +3,7 @@ import socket
 from time import sleep
 import threading
 import struct
-import messages
+import messages as m
 
 
 address_server = ('localhost', 1212)
@@ -19,11 +19,9 @@ def send_data():
 	while 1:
 		msg = input("")
 
-		# This is a test function. To start the test you have to type "test".
-		# A connection request will be packed and send.
-		# TODO: check merge (this if)
-		if msg == 'test':
-			msg = messages.createConnectionRequest(0, 'asdfghjk')
+		if 'CONNECT' in msg:
+			username = msg[8:].strip()
+			msg = m.createConnectionRequest(0, username)
 		else: # to normal strings
 			msg = msg.encode('utf-8')
 
@@ -35,23 +33,12 @@ def receive_data():
 	print('listening server')
 	while 1:
 		try:
-			received_data, addr = UDPsocket.recvfrom(1024)
-			print('Server:', received_data.decode())
+			data, addr = UDPsocket.recvfrom(1024)
+			print('Server:', data.decode())
 			print('Unpacking message:')
-			unpack_message(receive_data())
+			m.unpack_protocol_header(data)
 		except:
 			continue
-
-
-# This is a test to unpack a recieved packet and show it.
-# TODO: check merge of this function
-def unpack_message(msg):
-	msg = struct.unpack('>BBBH8s', msg)
-	print(msg[0])
-	print(msg[1])
-	print(msg[2])
-	print(msg[3])
-	print(msg[4].decode('UTF-8'))
 
 
 def run_threads():

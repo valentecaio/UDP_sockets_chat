@@ -1,57 +1,41 @@
 import socket
 from time import sleep
 import threading
-import messages
+import messages as m
 import struct
 import queue
 
 clients = []
 UDPSock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-server_dress = ('localhost', 1212)
+server_address = ('localhost', 1212)
 messages_queue = queue.Queue()
+
+# clients state constants
+ST_CONNECTING = 0
+ST_CONNECTED = 1
+
+PUBLIC_GROUP = 1
 
 
 # add client to clients list
-def add_client(addr):
+# TODO: usernameAlreadyExists and invalidUsername
+def add_client(addr, username):
 	# avoid adding clients already added
 	for client in clients:
 		if client['addr'] == addr: 	# can't compair using 'is'
 			return
 
-	client = {'id': len(clients), 'addr': addr}
+	client = {'id': len(clients), 'addr': addr, 'username': username, 'state': ST_CONNECTING, 'group': PUBLIC_GROUP}
 	clients.append(client)
-	print('Connected to a new client: \t', client['id'], client['addr'])
+	print('Connected to a new client: \t', client)
+	return client
 
 
-# receive a normal string, code it and send to receivers list
-def send_string(msg, receivers):
-	msg = msg.encode('utf-8')
+# receive a coded message and send it to receivers list
+def send_message(msg, receivers):
 	for client in receivers:
 		UDPSock.sendto(msg, client['addr'])
-		print("Sent msg '" + msg.decode() + "' to client " + str(client['id']))
-
-
-# This is a test to unpack and read the contant.
-# After that another packet is packed (the same one in this case) and send again to all clients.
-# TODO: check the merge of this function
-def send_msg(msg, receivers):
-	#msg = msg.encode('utf-8')
-	msg = struct.unpack('>BBBH8s', msg)
-	print(msg[0])
-	print(msg[1])
-	print(msg[2])
-	print(msg[3])
-	print(msg[4].decode('UTF-8'))
-	msg = messages.createConnectionRequest(0, 'asdfghjk')
-
-	for client in receivers:
-		UDPSock.sendto(msg, client['addr'])
-		print("Sent msg '" + msg.decode() + "' to client " + str(client['id']))
-
-
-def start_server():
-	UDPSock.bind(server_dress)
-	print("Server started at address", server_dress)
+		print("Sent msg to client " + str(client['id']))
 
 
 ''' thread functions '''
@@ -68,28 +52,36 @@ def receive_data():
 
 def send_data():
 	while 1:
+		# try to get a message from the queue
+		# if there's no message, try again without blocking
 		try:
-			msg = messages_queue.get(block=False)
+			input = messages_queue.get(block=False)
+			data, addr = input['data'], input['addr']
 		except:
 			continue
 
-		data, addr = msg['data'], msg['addr']
+		# unpack header
+		unpacked_data = m.unpack_protocol_header(data)
+		msg_type = unpacked_data['type']
 
-		# add client to clients list
-		add_client(addr)
+		# treat message according to type
+		if msg_type == m.TYPE_CONNECTION_REQUEST:
+			username = unpacked_data['content'].decode()
 
-		# this try tests the unpack function
-		try:
-			print(messages.unpack_protocol_header(data))
-		except:
+			# add client to clients list
+			client = add_client(addr, username)
+
+			# send ConnectionAccept as response
+			response = m.createConnectionAccept(0, client['id'])
+			send_message(response, [client])
+
+		elif msg_type == m.TYPE_ACKNOWLEGEMENT:
 			pass
+		else: # default case, it's here only to help tests
+			print('Received "' + data.decode() + '" from', addr)
 
-		# generate answer and encode it
-		response = 'Received "' + data.decode() + '"'
-		print(response, 'from', addr)
-
-		# send answer
-		send_string(response, clients)
+			# send answer
+			send_message(data, clients)
 
 def run_threads():
 	# start a thread to receive data
@@ -108,5 +100,6 @@ def run_threads():
 
 
 if __name__ == '__main__':
-	start_server()
+	UDPSock.bind(server_address)
+	print("Server started at address", server_address)
 	run_threads()
