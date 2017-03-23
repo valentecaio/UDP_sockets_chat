@@ -28,6 +28,7 @@ def read_keyboard():
 			text = user_input[5:].encode('utf-8')
 			msg = m.createDataMessage(0, client_id, client_group, text)
 
+
 		else:
 			print("This is not a valid command. Type HELP to get some help.")
 			continue
@@ -43,7 +44,7 @@ def main_loop():
 			data, addr = UDPsocket.recvfrom(1024)
 
 			# unpack header
-			unpacked_data = m.unpack_protocol_header(data)
+			unpacked_data = m.unpack_protocol_header(data)									#that has to be different for each message
 			msg_type = unpacked_data['type']
 
 			# treat acknowledgement messages according to types
@@ -56,14 +57,19 @@ def main_loop():
 			# treat non-acknowledgement messages
 			else:
 				if msg_type == m.TYPE_CONNECTION_ACCEPT:
-					# TODO: get user id from message content
-					# I tried this way but it doesn't work
-					# client_id = int( unpacked_data['content'].decode().strip() )
+
+					global client_id 													#needed to modify a global variable
+					unpacked_data = m.unpack_connection_accept(data)					#a new unpack function was needed, because the ID was unpacked as a string. I think that is the reason it didn't work.
+					client_id = int(unpacked_data['clientID'])
 
 					# send Acknowledgment as response
 					response = m.acknowledgement(m.TYPE_CONNECTION_ACCEPT, 0, client_id)
 					UDPsocket.sendto(response, address_server)
 
+				if msg_type == m.TYPE_DATA_MESSAGE:
+					content = unpacked_data['content']
+					text = content[2:]
+					print("%s: %s" % (unpacked_data['sourceID'], text.decode()))
 				# default case, it's here only to help tests
 				else:
 					print('Received "' + data.decode() + '" from', addr)

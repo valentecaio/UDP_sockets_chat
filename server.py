@@ -19,11 +19,12 @@ PUBLIC_GROUP = 1
 
 # add client to clients list
 # TODO: usernameAlreadyExists and invalidUsername
+#I think invalid username has to be treated in the client part because after we added the spaces we don't know if the client had spaces in hie username which wouldn't be allowed.
 def add_client(addr, username):
 	# avoid adding clients already added
-	for client in clients:
+	'''for client in clients:
 		if client['addr'] == addr: 	# can't compair using 'is'
-			return
+			return'''
 
 	# add client to clients dict
 	client_id = len(clients)
@@ -65,6 +66,7 @@ def send_data():
 			continue
 
 		# unpack header
+
 		unpacked_data = m.unpack_protocol_header(data)
 		msg_type = unpacked_data['type']
 
@@ -98,9 +100,19 @@ def send_data():
 				content = unpacked_data['content']
 				text = content[2:]
 				print("%s: %s" % (unpacked_data['sourceID'], text.decode()))
-
+				print(content[:2])
+				groupID = unpacked_data['groupID']
 				# resend it to users in same group
 				# TODO: by now, is sending to everybody
+				receivers = []
+				global clients
+
+				for key in clients:
+					if clients[key]['group'] == groupID:
+						receivers.append(client[key])
+
+
+
 				send_message(data, clients)
 
 			# default case, it's here only to help tests

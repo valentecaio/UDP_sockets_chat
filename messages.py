@@ -250,11 +250,11 @@ def acknowledgement(type, S, sourceID):
 
 ''' pack and unpack functions '''
 
-
-# content is the non-header part of the message
+# content is the optinal header part of the message
 # throws an error if trying to unpack messages without header
+# This functions is called to identify a message. Some messages might require a special unpacking function after that
 def unpack_protocol_header(msg):
-	firstByte, sourceID, groupID, lenght, content = struct.unpack(">BBBH" + str(len(msg)-5) + "s", msg)
+	firstByte, sourceID, groupID, lenght, content = struct.unpack_from(">BBBH" + str(len(msg) - 5) + "s",  msg, 0) #if there is somethhing else then string in the "content" it seems not to work.
 	type = firstByte >> 3
 	R = firstByte >> 2 & 1
 	S = firstByte >> 1 & 1
@@ -262,6 +262,28 @@ def unpack_protocol_header(msg):
 	return {'A': A, 'S': S, R: 'R', 'type': type, 'sourceID': sourceID,
 			'groupID': groupID, 'lenght': lenght, 'content': content}
 
+# unpack function for the connection accept. Actually only the unpacking of the clientID is requiered here because the rest was already correct unpacked, when this function is called. Unfortunately I didn't managed to unpack a single element.
+def unpack_connection_accept(msg):
+	firstByte, sourceID, groupID, lenght, clientID = struct.unpack_from(">BBBHB", msg, 0)
+	type = firstByte >> 3
+	R = firstByte >> 2 & 1
+	S = firstByte >> 1 & 1
+	A = firstByte & 1
+	return {'A': A, 'S': S, R: 'R', 'type': type, 'sourceID': sourceID,
+			'groupID': groupID, 'lenght': lenght, 'clientID': clientID}
+
+# unpack function for a data message if the length of the payload is needed
+
+
+def unpack_data_message(msg):
+	firstByte, sourceID, groupID, lenght, data_length, content = struct.unpack_from(">BBBHH" + str(len(msg) - 7) + "s", msg,
+																	   0)  # if there is somethhing else then string in the "content" it seems not to work.
+	type = firstByte >> 3
+	R = firstByte >> 2 & 1
+	S = firstByte >> 1 & 1
+	A = firstByte & 1
+	return {'A': A, 'S': S, R: 'R', 'type': type, 'sourceID': sourceID,
+			'groupID': groupID, 'lenght': lenght, 'data_length': data_length, 'content': content}
 
 if __name__ == '__main__':
 		pass
