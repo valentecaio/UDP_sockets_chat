@@ -250,15 +250,15 @@ def acknowledgement(type, S, sourceID):
 ''' pack and unpack functions '''
 
 
-# by now, this function is only working for connection requests
+# content is the non-header part of the message
 def unpack_protocol_header(msg):
-	firstByte, sourceID, groupID, lenght, a = struct.unpack('>BBBH8s', msg)
+	firstByte, sourceID, groupID, lenght, content = struct.unpack('>BBBH' + len(msg) -4 + 's', msg)
 	type = firstByte >> 3
 	R = firstByte >> 2 & 1
 	S = firstByte >> 1 & 1
 	A = firstByte & 1
 	return {'A': A, 'S': S, R: 'R', 'type': type, 'sourceID': sourceID,
-			'groupID': groupID, 'lenght': lenght}
+			'groupID': groupID, 'lenght': lenght, 'content': content}
 
 
 if __name__ == '__main__':
