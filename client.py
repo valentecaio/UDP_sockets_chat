@@ -8,7 +8,7 @@ import messages as m
 
 address_server = ('localhost', 1212)
 UDPsocket = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
-
+client_id = int()
 
 ''' thread functions '''
 
@@ -22,7 +22,7 @@ def send_data():
 		if 'CONNECT' in msg:
 			username = msg[8:].strip()
 			msg = m.createConnectionRequest(0, username)
-		else: # to normal strings
+		else: 	# to normal strings
 			msg = msg.encode('utf-8')
 
 		UDPsocket.sendto(msg, address_server)
@@ -34,9 +34,35 @@ def receive_data():
 	while 1:
 		try:
 			data, addr = UDPsocket.recvfrom(1024)
-			print('Server:', data.decode())
-			print('Unpacking message:')
-			m.unpack_protocol_header(data)
+
+			# unpack header
+			unpacked_data = m.unpack_protocol_header(data)
+			msg_type = unpacked_data['type']
+
+			# treat acknowledgement messages according to types
+			if unpacked_data['A']:
+				if msg_type == m.TYPE_USER_LIST_RESPONSE:
+					# code enter here when receiving a userListResponse acknowledgement
+					pass
+				# elif ...
+
+			# treat non-acknowledgement messages
+			else:
+				if msg_type == m.TYPE_CONNECTION_ACCEPT:
+					# TODO: get user id from message content
+					# I tried this way but it doesn't work
+					# client_id = int( unpacked_data['content'].decode().strip() )
+
+					# send Acknowledgment as response
+					response = m.acknowledgement(m.TYPE_CONNECTION_ACCEPT, 0, client_id)
+					UDPsocket.sendto(response, address_server)
+
+				# default case, it's here only to help tests
+				else:
+					print('Received "' + data.decode() + '" from', addr)
+					# send answer
+					UDPsocket.sendto(response, address_server)
+
 		except:
 			continue
 

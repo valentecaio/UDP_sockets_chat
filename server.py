@@ -5,7 +5,7 @@ import messages as m
 import struct
 import queue
 
-clients = []
+clients = {}
 UDPSock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 server_address = ('localhost', 1212)
 messages_queue = queue.Queue()
@@ -25,8 +25,11 @@ def add_client(addr, username):
 		if client['addr'] == addr: 	# can't compair using 'is'
 			return
 
-	client = {'id': len(clients), 'addr': addr, 'username': username, 'state': ST_CONNECTING, 'group': PUBLIC_GROUP}
-	clients.append(client)
+	# add client to clients dict
+	client_id = len(clients)
+	client = {'id': client_id, 'addr': addr, 'username': username, 'state': ST_CONNECTING, 'group': PUBLIC_GROUP}
+	clients[str(client_id)] = client
+
 	print('Connected to a new client: \t', client)
 	return client
 
@@ -47,6 +50,7 @@ def receive_data():
 		data, addr = UDPSock.recvfrom(1024)
 		if not data: break
 
+		# put new message in the queue
 		messages_queue.put_nowait({'data': data, 'addr': addr})
 
 
@@ -67,10 +71,12 @@ def send_data():
 		# treat acknowledgement messages according to types
 		if unpacked_data['A']:
 			if msg_type == m.TYPE_CONNECTION_ACCEPT:
-				# code enter here when the client send a connectionAccept acknowledgement
-				pass
+				# code enter here when receiving a connectionAccept acknowledgement
+				# change client state to connected
+				client = clients[ str(unpacked_data['sourceID']) ]
+				client['state'] = ST_CONNECTED
 			elif msg_type == m.TYPE_USER_LIST_RESPONSE:
-				# code enter here when the client send a userListResponse acknowledgement
+				# code enter here when receiving a userListResponse acknowledgement
 				pass
 			# elif ...
 
