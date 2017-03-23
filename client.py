@@ -1,9 +1,7 @@
 # Echo client program
 import socket
 from time import sleep
-from sys import argv
 import threading
-import ctypes
 import struct
 import messages
 

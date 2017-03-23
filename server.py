@@ -1,14 +1,14 @@
 import socket
-from sys import argv
 from time import sleep
 import threading
 import messages
-import ctypes
 import struct
+import queue
 
 clients = []
 UDPSock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 server_dress = ('localhost', 1212)
+messages_queue = queue.Queue()
 
 
 # add client to clients list
@@ -63,6 +63,18 @@ def receive_data():
 		data, addr = UDPSock.recvfrom(1024)
 		if not data: break
 
+		messages_queue.put_nowait({'data': data, 'addr': addr})
+
+
+def send_data():
+	while 1:
+		try:
+			msg = messages_queue.get(block=False)
+		except:
+			continue
+
+		data, addr = msg['data'], msg['addr']
+
 		# add client to clients list
 		add_client(addr)
 
@@ -78,22 +90,6 @@ def receive_data():
 
 		# send answer
 		send_string(response, clients)
-
-
-def send_data():
-	pass
-	'''
-		while 1:
-		for client in clients:
-<<<<<<< HEAD
-			received_data = client['socket'].recvfrom(1024).decode()
-=======
-			received_data = client['socket'].recv(1024)
->>>>>>> 52b4aafb139c7fe33f2affd82cd12beddaf70f06
-			if not received_data: break
-			print('Received:', received_data)
-			send_msg(received_data, clients)
-	'''
 
 def run_threads():
 	# start a thread to receive data
