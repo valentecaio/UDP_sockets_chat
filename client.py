@@ -10,6 +10,7 @@ address_server = ('localhost', 1212)
 UDPsocket = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
 client_id = 0
 client_group = 0
+clients = {}
 
 ''' thread functions '''
 
@@ -57,13 +58,18 @@ def main_loop():
 			# treat non-acknowledgement messages
 			else:
 				if msg_type == m.TYPE_CONNECTION_ACCEPT:
-
 					global client_id 													#needed to modify a global variable
 					unpacked_data = m.unpack_connection_accept(data)					#a new unpack function was needed, because the ID was unpacked as a string. I think that is the reason it didn't work.
 					client_id = int(unpacked_data['clientID'])
+					global client_group
+					client_group = 1
 
 					# send Acknowledgment as response
 					response = m.acknowledgement(m.TYPE_CONNECTION_ACCEPT, 0, client_id)
+					UDPsocket.sendto(response, address_server)
+
+					# send user list request (this message will only be send once after the connection
+					response = m.createUserListRequest(0, client_id)
 					UDPsocket.sendto(response, address_server)
 
 				if msg_type == m.TYPE_DATA_MESSAGE:
@@ -71,10 +77,19 @@ def main_loop():
 					text = content[2:]
 					print("%s: %s" % (unpacked_data['sourceID'], text.decode()))
 				# default case, it's here only to help tests
+				if msg_type == m.TYPE_USER_LIST_RESPONSE:							#only for testing. unpacker not done yet
+					print('received user list response')
+					unpacked_userlist = m.unpack_user_list_response(data)			#no error massege but comands after that are not treated. makes absolutely no sense....
+					print(unpacked_userlist['username'])
+					print('why not working?')
+					#text = content[2:]
+					#print("%s: %s" % (unpacked_data['sourceID'], text.decode()))
+					'''
 				else:
 					print('Received "' + data.decode() + '" from', addr)
 					# send answer
 					UDPsocket.sendto(response, address_server)
+					'''
 
 		except:
 			continue

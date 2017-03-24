@@ -1,6 +1,7 @@
 import ctypes
 import struct
 import argparse
+import socket
 
 
 # type constants
@@ -99,20 +100,37 @@ def createUserListRequest(S, sourceID):
 #This function creates the user list response. The inputs are the sequence number, the source ID and a list of lists of the user Data.
 #Each element of these list will be another list containing the following Data in that order (username, client ID, Group ID, IP Adress, Port).
 #Attention! Filling of usernames with less then 8 characters is not treated in that function!!!
-def createUserListResponse(S, sourceID, userList):
+def createUserListResponse(S, sourceID, userDictionary):
 	groupId = 0x01
-	headerLength = hex(5 + 16*len(userList))
+
+	headerLength = 0X005
+	optionsLength = 16*len(userDictionary)
+
 	firstByte = generateFirstByte(TYPE_USER_LIST_RESPONSE, 0, S, 0)
-	buf = ctypes.create_string_buffer(headerLength)
+	buf = ctypes.create_string_buffer(headerLength + optionsLength)
 
 	# Packing the first 5 bytes which are always given
 	struct.pack_into('>BBBH', buf, 0, firstByte, sourceID, groupId, headerLength)
 
+
 	# Packing the last bytes which can change size
-	# Filling the buffer with the list elements using the offset of struct.pack_into. Wanted to use xrange but couldn't be resolved.
-	for i in range(len(userList)):
-		offset = (5+i*16)*8		#Calculating the offset in bit.
-		struct.pack_into('>8sBBIH', buf, offset, bytes(usernameWithPadding(userList[i][1]), 'utf8'), userList[i][2], userList[i][3], userList[i][4], userList[i][5]) # The first element in each list is always a string. Thats why it is always packed with the "bytes()" command.
+	counter=0
+	for key in userDictionary:
+
+		# Calculating the offset in byte.
+		offset = (5+counter*16)
+
+		# packing adress so that it can be send (ip adress has to be converted to the format long)
+		ip, port = userDictionary[key]['addr']
+		ip_int = struct.unpack('>L', socket.inet_aton(ip))[0]
+
+		packed_username = bytes(usernameWithPadding(userDictionary[key]['username']), 'utf8')
+		client_id = userDictionary[key]['id']
+		client_group = userDictionary[key]['group']
+
+		struct.pack_into('>BB8sLH', buf, offset, client_id, client_group, packed_username, ip_int, port)
+
+		counter += 1
 	return buf
 
 
@@ -276,14 +294,21 @@ def unpack_connection_accept(msg):
 
 
 def unpack_data_message(msg):
-	firstByte, sourceID, groupID, lenght, data_length, content = struct.unpack_from(">BBBHH" + str(len(msg) - 7) + "s", msg,
-																	   0)  # if there is somethhing else then string in the "content" it seems not to work.
+	firstByte, sourceID, groupID, lenght, data_length, content = struct.unpack_from(">BBBHH" + str(len(msg) - 7) + "s", msg, 0)  # if there is something else then string in the "content" it seems not to work.
 	type = firstByte >> 3
 	R = firstByte >> 2 & 1
 	S = firstByte >> 1 & 1
 	A = firstByte & 1
 	return {'A': A, 'S': S, R: 'R', 'type': type, 'sourceID': sourceID,
 			'groupID': groupID, 'lenght': lenght, 'data_length': data_length, 'content': content}
+
+
+def unpack_user_list_response(msg):
+	client_id, client_group, packed_username = struct.unpack_from(">BB8S", msg, 5)
+
+	return {'client_id':client_id, 'client_group': client_group, 'username' : packed_username}
+
+
 
 if __name__ == '__main__':
 		pass

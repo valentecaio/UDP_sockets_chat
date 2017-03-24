@@ -103,24 +103,30 @@ def send_data():
 				print(content[:2])
 				groupID = unpacked_data['groupID']
 				# resend it to users in same group
-				# TODO: by now, is sending to everybody
-				receivers = []
-				global clients
+				receivers = {}
 
 				for key in clients:
 					if clients[key]['group'] == groupID:
-						receivers.append(client[key])
+						receivers[key] = clients[key]
+				send_message(data, receivers)
+
+			elif msg_type == m.TYPE_USER_LIST_REQUEST:
+				# send user list
+				client = clients[ str(unpacked_data['sourceID']) ]
+				response = m.createUserListResponse(0, client['id'], clients)                     # currently working here
+				print('send user list')
+				UDPSock.sendto(response, client['addr'])
 
 
-
-				send_message(data, clients)
 
 			# default case, it's here only to help tests
+			'''
 			else:
 				print('Received "' + data.decode() + '" from', addr)
 
 				# send answer
 				send_message(data, clients)
+				'''
 
 
 def run_threads():
