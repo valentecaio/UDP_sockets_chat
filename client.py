@@ -72,6 +72,9 @@ def read_keyboard():
 
 # used by server listener thread
 def main_loop():
+	global client_group
+	global user_list
+	global client_id
 	while 1:
 		try:
 			data, addr = UDPsocket.recvfrom(1024)
@@ -83,16 +86,14 @@ def main_loop():
 			# treat acknowledgement messages according to types
 			if unpacked_data['A']:
 				if msg_type == m.TYPE_USER_LIST_RESPONSE:
-					# code enter here when receiving a userListResponse acknowledgement
 					pass
+				# code enter here when receiving a userListResponse acknowledgement
 				# elif ...
 
 			# treat non-acknowledgement messages
 			else:
 				if msg_type == m.TYPE_CONNECTION_ACCEPT:
 					unpacked_data = m.unpack_connection_accept(data)
-					global client_id
-					global client_group
 					client_id = int(unpacked_data['clientID'])
 					client_group = 1										#the group id in that message is not the actual group (which will be 1 for public group after the connection). See specifications
 
@@ -114,7 +115,6 @@ def main_loop():
 					print("%s: %s" % (user_list[unpacked_data['sourceID']]['username'], text.decode()))
 
 				if msg_type == m.TYPE_USER_LIST_RESPONSE:
-					global user_list
 					user_list = m.unpack_user_list_response(data)
 
 					print('received user list response')
@@ -143,6 +143,6 @@ def run_threads():
 
 
 ''' main interface '''
+
 if __name__ == '__main__':
 	run_threads()
-

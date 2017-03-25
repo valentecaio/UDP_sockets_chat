@@ -28,10 +28,11 @@ PUBLIC_GROUP = 1
 #I think invalid username has to be treated in the client part because after we added the spaces we don't know if the client had spaces in hie username which wouldn't be allowed.
 def connect_client(addr, username):
 	# avoid adding clients already added
+	'''
 	for client in clients:
 		if client['addr'] == addr: 	# can't compair using 'is'
 			return
-
+	'''
 	# add client to clients dict
 	global next_id
 	client_id = next_id
