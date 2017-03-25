@@ -94,7 +94,7 @@ def main_loop():
 					global client_id
 					global client_group
 					client_id = int(unpacked_data['clientID'])
-					client_group = int(unpacked_data['groupID'])
+					client_group = 1										#the group id in that message is not the actual group (which will be 1 for public group after the connection). See specifications
 
 					print("Connected to group %s with id %s"
 						  % (client_group, client_id))
@@ -111,7 +111,7 @@ def main_loop():
 				if msg_type == m.TYPE_DATA_MESSAGE:
 					content = unpacked_data['content']
 					text = content[2:]
-					print("%s: %s" % (unpacked_data['sourceID'], text.decode()))
+					print("%s: %s" % (user_list[unpacked_data['sourceID']]['username'], text.decode()))
 
 				if msg_type == m.TYPE_USER_LIST_RESPONSE:
 					global user_list
