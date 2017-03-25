@@ -50,10 +50,13 @@ def read_keyboard():
 
 
 		elif user_cmd == CMD_USER_LIST:
+			'''
 			for keys, value in user_list.items():
 				for under_key, under_value in value.items():
 					print(under_key)
 					print(under_value)
+			'''
+			pprint(user_list)
 
 		elif user_cmd == CMD_HELP:
 			print('\t%s to show this help,\n'
