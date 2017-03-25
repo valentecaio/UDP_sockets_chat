@@ -237,6 +237,39 @@ def groupDissolution(S, groupID):
 	struct.pack_into('>BBBH', buf, 0, firstByte, userID, groupID, headerLength)
 	return buf
 
+# message to update list of users (disconnections are treated seperately). updated users is a dictionary of the users that should be updated.)
+
+def createUpdateList(S, updated_users):
+	#broadcast groupID
+	groupId = 0xFF
+	sourceID = 0x00
+	headerLength = 0X005
+	optionsLength = 16 * len(updated_users)
+
+	firstByte = generateFirstByte(TYPE_UPDATE_LIST, 0, S, 0)
+	buf = ctypes.create_string_buffer(headerLength + optionsLength)
+
+	# Packing the first 5 bytes which are always given
+	struct.pack_into('>BBBH', buf, 0, firstByte, sourceID, groupId, headerLength)
+
+	# Packing the last bytes which can change size
+	counter = 0
+	for key in updated_users:
+		# Calculating the offset in byte.
+		offset = (5 + counter * 16)
+
+		# packing address so that it can be send (ip adress has to be converted to the format long)
+		ip, port = updated_users[key]['addr']
+		ip_int = struct.unpack('>L', socket.inet_aton(ip))[0]
+
+		packed_username = bytes(usernameWithPadding(updated_users[key]['username']), 'utf8')
+		client_id = updated_users[key]['id']
+		client_group = updated_users[key]['group']
+
+		struct.pack_into('>BB8sLH', buf, offset, client_id, client_group, packed_username, ip_int, port)
+
+		counter += 1
+	return buf
 
 # The server sends this message to all users using a broadcast group ID if another user left the channel.
 # Since this message is sent by the server to all users
@@ -245,7 +278,7 @@ def updateDissconnction(S, clientID):
 	headerLength = 0x006
 	firstByte = generateFirstByte(TYPE_UPDATE_DISCONNECTION, 0, S, 0)
 	buf = ctypes.create_string_buffer(headerLength)
-	struct.pack_into('>BBBHB', buf, 0, firstByte, 0, 0xFFF, headerLength, clientID)
+	struct.pack_into('>BBBHB', buf, 0, firstByte, 0, 0xFF, headerLength, clientID)
 	return buf
 
 
@@ -323,6 +356,15 @@ def unpack_user_list_response(msg):
 		offset += 16
 	return user_list
 
+#unpack error code of connection reject
+def unpack_error_type(msg):
+	firstByte, sourceID, groupID, lenght, error_code = struct.unpack_from(">BBBHB", msg, 0)
+	type = firstByte >> 3
+	R = firstByte >> 2 & 1
+	S = firstByte >> 1 & 1
+	A = firstByte & 1
+	return error_code
+#unpack changed users in a dictionary
 
 if __name__ == '__main__':
 		pass
