@@ -20,7 +20,7 @@ PUBLIC_GROUP = 1
 # add client to clients list
 # TODO: usernameAlreadyExists and invalidUsername
 #I think invalid username has to be treated in the client part because after we added the spaces we don't know if the client had spaces in hie username which wouldn't be allowed.
-def add_client(addr, username):
+def connect_client(addr, username):
 	# avoid adding clients already added
 	'''for client in clients:
 		if client['addr'] == addr: 	# can't compair using 'is'
@@ -89,7 +89,7 @@ def send_data():
 				username = unpacked_data['content'].decode().strip()
 
 				# add client to clients list
-				client = add_client(addr, username)
+				client = connect_client(addr, username)
 
 				# send ConnectionAccept as response
 				response = m.createConnectionAccept(0, client['id'])
