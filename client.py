@@ -10,7 +10,7 @@ address_server = ('localhost', 1212)
 UDPsocket = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
 client_id = 0
 client_group = 0
-clients = {}
+user_list = {}
 
 ''' thread functions '''
 
@@ -24,17 +24,26 @@ def read_keyboard():
 		if 'CONNECT' in user_input:
 			username = user_input[8:].strip()
 			msg = m.createConnectionRequest(0, username)
+			UDPsocket.sendto(msg, address_server)
+
 
 		elif 'SEND' in user_input:
 			text = user_input[5:].encode('utf-8')
 			msg = m.createDataMessage(0, client_id, client_group, text)
+			UDPsocket.sendto(msg, address_server)
+
+		elif 'USERS' in user_input:
+			for keys, value in user_list.items():
+				for under_key, under_value in value.items():
+					print(under_key)
+					print(under_value)
 
 
 		else:
 			print("This is not a valid command. Type HELP to get some help.")
 			continue
 
-		UDPsocket.sendto(msg, address_server)
+		#UDPsocket.sendto(msg, address_server)
 
 
 # used by server listener thread
@@ -76,12 +85,13 @@ def main_loop():
 					content = unpacked_data['content']
 					text = content[2:]
 					print("%s: %s" % (unpacked_data['sourceID'], text.decode()))
-				# default case, it's here only to help tests
-				if msg_type == m.TYPE_USER_LIST_RESPONSE:							#only for testing. unpacker not done yet
+					# default case, it's here only to help tests
+				if msg_type == m.TYPE_USER_LIST_RESPONSE:							#NOT WORKING YET
 					print('received user list response')
-					unpacked_userlist = m.unpack_user_list_response(data)			#no error massege but comands after that are not treated. makes absolutely no sense....
-					print(unpacked_userlist['username'])
-					print('why not working?')
+					global user_list
+					user_list= m.unpack_user_list_response(data)			#no error massege but comands after that are not treated. makes absolutely no sense....
+					print(user_list[unpacked_data['client_id']]['username'])
+
 					#text = content[2:]
 					#print("%s: %s" % (unpacked_data['sourceID'], text.decode()))
 					'''

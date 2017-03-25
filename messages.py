@@ -303,10 +303,16 @@ def unpack_data_message(msg):
 			'groupID': groupID, 'lenght': lenght, 'data_length': data_length, 'content': content}
 
 
+#unpack user list in a deictionary
 def unpack_user_list_response(msg):
-	client_id, client_group, packed_username = struct.unpack_from(">BB8S", msg, 5)
 
-	return {'client_id':client_id, 'client_group': client_group, 'username' : packed_username}
+	user_list={}
+	for i in range (len(msg)):
+		client_id, client_group, username, ip_int, port = struct.unpack_from(">BB8sLH", msg, 5+(i*16))
+		ip = socket.inet_ntoa(struct.pack('L',ip_int))
+		user = {'client_id':client_id, 'client_group': client_group, 'username' : username.decode(), 'ip':ip, 'port':port}
+		user_list[str(client_id)] = user
+	return user_list
 
 
 
