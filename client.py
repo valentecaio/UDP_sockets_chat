@@ -115,7 +115,7 @@ def main_loop():
 				if msg_type == m.TYPE_DATA_MESSAGE:
 					content = unpacked_data['content']
 					text = content[2:]
-					print("%s: %s" % (user_list[unpacked_data['sourceID']]['username'], text.decode()))
+					print("%s: %s" % (user_list[str(unpacked_data['sourceID'])]['username'], text.decode()))
 
 				if msg_type == m.TYPE_USER_LIST_RESPONSE:
 					user_list = m.unpack_user_list_response(data)

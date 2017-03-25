@@ -313,7 +313,7 @@ def unpack_user_list_response(msg):
 	while offset < len(msg):
 		client_id, client_group, username, ip_int, port = struct.unpack_from(">BB8sLH", msg, offset)
 
-		ip = socket.inet_ntoa(struct.pack('L',ip_int))
+		ip = socket.inet_ntoa(struct.pack('>L',ip_int))
 		username = username.decode().strip()
 
 		user = {'client_id': client_id, 'client_group': client_group,
