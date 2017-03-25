@@ -95,7 +95,7 @@ def main_loop():
 						  % (client_group, client_id))
 
 					# send Acknowledgment as response
-					response = m.acknowledgement(m.TYPE_CONNECTION_ACCEPT, 0, client_id)
+					response = m.acknowledgement(msg_type, 0, client_id)
 					UDPsocket.sendto(response, address_server)
 
 					# send user list request
@@ -109,10 +109,15 @@ def main_loop():
 					print("%s: %s" % (unpacked_data['sourceID'], text.decode()))
 
 				if msg_type == m.TYPE_USER_LIST_RESPONSE:
-					print('received user list response')
 					global user_list
 					user_list = m.unpack_user_list_response(data)
+
+					print('received user list response')
 					pprint(user_list)
+
+					# send Acknowledgment as response
+					response = m.acknowledgement(msg_type, 0, client_id)
+					UDPsocket.sendto(response, address_server)
 
 		except:
 			continue
