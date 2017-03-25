@@ -1,10 +1,14 @@
 # Echo client program
 import socket
-from time import sleep
 import threading
-import struct
+from time import sleep
+
 import messages as m
-from pprint import pprint
+
+try:
+	from pprint import pprint
+except:
+	pprint = print
 
 address_server = ('localhost', 1212)
 UDPsocket = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
@@ -68,7 +72,7 @@ def main_loop():
 			data, addr = UDPsocket.recvfrom(1024)
 
 			# unpack header
-			unpacked_data = m.unpack_protocol_header(data)									#that has to be different for each message
+			unpacked_data = m.unpack_protocol_header(data)
 			msg_type = unpacked_data['type']
 
 			# treat acknowledgement messages according to types
@@ -109,15 +113,6 @@ def main_loop():
 					global user_list
 					user_list = m.unpack_user_list_response(data)
 					pprint(user_list)
-
-					#text = content[2:]
-					#print("%s: %s" % (unpacked_data['sourceID'], text.decode()))
-					'''
-				else:
-					print('Received "' + data.decode() + '" from', addr)
-					# send answer
-					UDPsocket.sendto(response, address_server)
-					'''
 
 		except:
 			continue

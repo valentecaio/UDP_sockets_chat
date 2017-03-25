@@ -1,9 +1,14 @@
-import socket
-from time import sleep
-import threading
-import messages as m
-import struct
 import queue
+import socket
+import threading
+from time import sleep
+
+import messages as m
+
+try:
+	from pprint import pprint
+except:
+	pprint = print
 
 clients = {}
 next_id = 0

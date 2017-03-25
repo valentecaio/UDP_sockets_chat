@@ -1,8 +1,11 @@
 import ctypes
-import struct
-import argparse
 import socket
+import struct
 
+try:
+	from pprint import pprint
+except:
+	pprint = print
 
 # type constants
 TYPE_CONNECTION_REQUEST = 0x00
