@@ -122,7 +122,7 @@ def send_data():
 			elif msg_type == m.TYPE_USER_LIST_REQUEST:
 				# send user list
 				client = clients[ str(unpacked_data['sourceID']) ]
-				response = m.createUserListResponse(0, client['id'], clients)                     # currently working here
+				response = m.createUserListResponse(0, client['id'], clients)
 				print('send user list')
 				UDPSock.sendto(response, client['addr'])
 

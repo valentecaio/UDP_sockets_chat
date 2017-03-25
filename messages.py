@@ -130,7 +130,6 @@ def createUserListResponse(S, sourceID, userDictionary):
 		client_id = userDictionary[key]['id']
 		client_group = userDictionary[key]['group']
 
-		print(offset, client_id, client_group, packed_username, ip_int, port)
 		struct.pack_into('>BB8sLH', buf, offset, client_id, client_group, packed_username, ip_int, port)
 
 		counter += 1
