@@ -35,8 +35,8 @@ def read_keyboard():
 		print('command ' + user_cmd)
 
 		if user_cmd == CMD_CONNECT:
+			username = user_input[len(CMD_CONNECT) + 1:].strip()
 			if len(username) <= 8:
-				username = user_input[len(CMD_CONNECT)+1:].strip()
 				msg = m.createConnectionRequest(0, username)
 				UDPsocket.sendto(msg, address_server)
 			else:
