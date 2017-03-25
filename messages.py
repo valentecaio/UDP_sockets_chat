@@ -1,8 +1,11 @@
 import ctypes
-import struct
-import argparse
 import socket
+import struct
 
+try:
+	from pprint import pprint
+except:
+	pprint = print
 
 # type constants
 TYPE_CONNECTION_REQUEST = 0x00
@@ -112,7 +115,6 @@ def createUserListResponse(S, sourceID, userDictionary):
 	# Packing the first 5 bytes which are always given
 	struct.pack_into('>BBBH', buf, 0, firstByte, sourceID, groupId, headerLength)
 
-
 	# Packing the last bytes which can change size
 	counter=0
 	for key in userDictionary:
@@ -120,7 +122,7 @@ def createUserListResponse(S, sourceID, userDictionary):
 		# Calculating the offset in byte.
 		offset = (5+counter*16)
 
-		# packing adress so that it can be send (ip adress has to be converted to the format long)
+		# packing address so that it can be send (ip adress has to be converted to the format long)
 		ip, port = userDictionary[key]['addr']
 		ip_int = struct.unpack('>L', socket.inet_aton(ip))[0]
 
@@ -280,7 +282,7 @@ def unpack_protocol_header(msg):
 	return {'A': A, 'S': S, R: 'R', 'type': type, 'sourceID': sourceID,
 			'groupID': groupID, 'lenght': lenght, 'content': content}
 
-# unpack function for the connection accept. Actually only the unpacking of the clientID is requiered here because the rest was already correct unpacked, when this function is called. Unfortunately I didn't managed to unpack a single element.
+# unpack function for the connection accept.
 def unpack_connection_accept(msg):
 	firstByte, sourceID, groupID, lenght, clientID = struct.unpack_from(">BBBHB", msg, 0)
 	type = firstByte >> 3
@@ -303,17 +305,23 @@ def unpack_data_message(msg):
 			'groupID': groupID, 'lenght': lenght, 'data_length': data_length, 'content': content}
 
 
-#unpack user list in a deictionary
+# unpack user list in a dictionary
 def unpack_user_list_response(msg):
+	user_list = {}
 
-	user_list={}
-	for i in range (len(msg)):
-		client_id, client_group, username, ip_int, port = struct.unpack_from(">BB8sLH", msg, 5+(i*16))
+	offset = 5
+	while offset < len(msg):
+		client_id, client_group, username, ip_int, port = struct.unpack_from(">BB8sLH", msg, offset)
+
 		ip = socket.inet_ntoa(struct.pack('L',ip_int))
-		user = {'client_id':client_id, 'client_group': client_group, 'username' : username.decode(), 'ip':ip, 'port':port}
-		user_list[str(client_id)] = user
-	return user_list
+		username = username.decode().strip()
 
+		user = {'client_id': client_id, 'client_group': client_group,
+				'username': username, 'ip':ip, 'port':port}
+		user_list[str(client_id)] = user
+
+		offset += 16
+	return user_list
 
 
 if __name__ == '__main__':

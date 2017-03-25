@@ -1,16 +1,22 @@
-import socket
-from time import sleep
-import threading
-import messages as m
-import struct
 import queue
+import socket
+import threading
+from time import sleep
+
+import messages as m
+
+try:
+	from pprint import pprint
+except:
+	pprint = print
 
 clients = {}
+next_id = 0
 UDPSock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 server_address = ('localhost', 1212)
 messages_queue = queue.Queue()
 
-# clients state constants
+# constants
 ST_CONNECTING = 0
 ST_CONNECTED = 1
 
@@ -20,14 +26,17 @@ PUBLIC_GROUP = 1
 # add client to clients list
 # TODO: usernameAlreadyExists
 #I think invalid username has to be treated in the client part because after we added the spaces we don't know if the client had spaces in hie username which wouldn't be allowed.
-def add_client(addr, username):
+def connect_client(addr, username):
 	# avoid adding clients already added
-	'''for client in clients:
+	for client in clients:
 		if client['addr'] == addr: 	# can't compair using 'is'
-			return'''
+			return
 
 	# add client to clients dict
-	client_id = len(clients)
+	global next_id
+	client_id = next_id
+	next_id += 1
+
 	client = {'id': client_id, 'addr': addr, 'username': username, 'state': ST_CONNECTING, 'group': PUBLIC_GROUP}
 	clients[str(client_id)] = client
 
@@ -96,7 +105,7 @@ def send_data():
 				username = unpacked_data['content'].decode().strip()
 
 				# add client to clients list
-				client = add_client(addr, username)
+				client = connect_client(addr, username)
 
 				# send ConnectionAccept as response
 				response = m.createConnectionAccept(0, client['id'])
@@ -120,21 +129,9 @@ def send_data():
 			elif msg_type == m.TYPE_USER_LIST_REQUEST:
 				# send user list
 				client = clients[ str(unpacked_data['sourceID']) ]
-				response = m.createUserListResponse(0, client['id'], clients)                     # currently working here
+				response = m.createUserListResponse(0, client['id'], clients)
 				print('send user list')
 				UDPSock.sendto(response, client['addr'])
-
-
-
-			# default case, it's here only to help tests
-			'''
-			else:
-				print('Received "' + data.decode() + '" from', addr)
-
-				# send answer
-				send_message(data, clients)
-				'''
-
 
 
 def run_threads():

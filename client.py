@@ -1,16 +1,26 @@
 # Echo client program
 import socket
-from time import sleep
 import threading
-import struct
+from time import sleep
+
 import messages as m
 
+try:
+	from pprint import pprint
+except:
+	pprint = print
 
 address_server = ('localhost', 1212)
 UDPsocket = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
 client_id = 0
 client_group = 0
 user_list = {}
+
+''' user commands '''
+CMD_CONNECT = 'CONNECT'
+CMD_SEND = 'SEND'
+CMD_USER_LIST = 'USERS'
+CMD_HELP = 'HELP'
 
 ''' thread functions '''
 
@@ -20,31 +30,41 @@ def read_keyboard():
 	print("Type messages to send: \t")
 	while 1:
 		user_input = input("")
+		space = user_input.find(' ')
+		user_cmd = (user_input[:space] if space is not -1 else user_input)
+		print('command ' + user_cmd)
 
-		if 'CONNECT' in user_input:
-			username = user_input[8:].strip()
+		if user_cmd == CMD_CONNECT:
 			if len(username) <= 8:
+				username = user_input[len(CMD_CONNECT)+1:].strip()
 				msg = m.createConnectionRequest(0, username)
 				UDPsocket.sendto(msg, address_server)
 			else:
 				print('Your username can not contain more than 8 characters. Please choose another one.')
+				continue
 
-
-		elif 'SEND' in user_input:
-			text = user_input[5:].encode('utf-8')
+		elif user_cmd == CMD_SEND:
+			text = user_input[len(CMD_SEND)+1:].encode('utf-8')
 			msg = m.createDataMessage(0, client_id, client_group, text)
 			UDPsocket.sendto(msg, address_server)
 
-		#should print user list but (Not working yet because there are problems concerning the user list)
-		elif 'USERS' in user_input:
+
+		elif user_cmd == CMD_USER_LIST:
 			for keys, value in user_list.items():
 				for under_key, under_value in value.items():
 					print(under_key)
 					print(under_value)
 
+		elif user_cmd == CMD_HELP:
+			print('\t%s to show this help,\n'
+				  '\t%s to send a message,\n'
+				  '\t%s to connect to server\n'
+				  '\t%s to get the users list\n'
+				  % (CMD_HELP,CMD_SEND,CMD_CONNECT,CMD_USER_LIST))
 
 		else:
-			print("This is not a valid command. Type HELP to get some help.")
+			print("This is not a valid command. Type "
+				  + CMD_HELP + "to get some help.")
 			continue
 
 		#UDPsocket.sendto(msg, address_server)
@@ -52,13 +72,12 @@ def read_keyboard():
 
 # used by server listener thread
 def main_loop():
-	print('listening server')
 	while 1:
 		try:
 			data, addr = UDPsocket.recvfrom(1024)
 
 			# unpack header
-			unpacked_data = m.unpack_protocol_header(data)									#that has to be different for each message
+			unpacked_data = m.unpack_protocol_header(data)
 			msg_type = unpacked_data['type']
 
 			# treat acknowledgement messages according to types
@@ -71,17 +90,21 @@ def main_loop():
 			# treat non-acknowledgement messages
 			else:
 				if msg_type == m.TYPE_CONNECTION_ACCEPT:
-					global client_id 													#needed to modify a global variable
-					unpacked_data = m.unpack_connection_accept(data)					#a new unpack function was needed, because the ID was unpacked as a string. I think that is the reason it didn't work.
-					client_id = int(unpacked_data['clientID'])
+					unpacked_data = m.unpack_connection_accept(data)
+					global client_id
 					global client_group
-					client_group = 1
+					client_id = int(unpacked_data['clientID'])
+					client_group = int(unpacked_data['groupID'])
+
+					print("Connected to group %s with id %s"
+						  % (client_group, client_id))
 
 					# send Acknowledgment as response
-					response = m.acknowledgement(m.TYPE_CONNECTION_ACCEPT, 0, client_id)
+					response = m.acknowledgement(msg_type, 0, client_id)
 					UDPsocket.sendto(response, address_server)
 
-					# send user list request (this message will only be send once after the connection
+					# send user list request
+					# this message will only be send once after the connection
 					response = m.createUserListRequest(0, client_id)
 					UDPsocket.sendto(response, address_server)
 
@@ -89,21 +112,17 @@ def main_loop():
 					content = unpacked_data['content']
 					text = content[2:]
 					print("%s: %s" % (unpacked_data['sourceID'], text.decode()))
-					# default case, it's here only to help tests
-				if msg_type == m.TYPE_USER_LIST_RESPONSE:							#NOT WORKING YET
-					print('received user list response')
-					global user_list
-					user_list= m.unpack_user_list_response(data)			#no error massege but comands after that are not treated. makes absolutely no sense....
-					print(user_list[unpacked_data['client_id']]['username'])
 
-					#text = content[2:]
-					#print("%s: %s" % (unpacked_data['sourceID'], text.decode()))
-					'''
-				else:
-					print('Received "' + data.decode() + '" from', addr)
-					# send answer
+				if msg_type == m.TYPE_USER_LIST_RESPONSE:
+					global user_list
+					user_list = m.unpack_user_list_response(data)
+
+					print('received user list response')
+					pprint(user_list)
+
+					# send Acknowledgment as response
+					response = m.acknowledgement(msg_type, 0, client_id)
 					UDPsocket.sendto(response, address_server)
-					'''
 
 		except:
 			continue
