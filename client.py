@@ -23,8 +23,11 @@ def read_keyboard():
 
 		if 'CONNECT' in user_input:
 			username = user_input[8:].strip()
-			msg = m.createConnectionRequest(0, username)
-			UDPsocket.sendto(msg, address_server)
+			if len(username) <= 8:
+				msg = m.createConnectionRequest(0, username)
+				UDPsocket.sendto(msg, address_server)
+			else:
+				print('Your username can not contain more than 8 characters. Please choose another one.')
 
 
 		elif 'SEND' in user_input:
@@ -32,6 +35,7 @@ def read_keyboard():
 			msg = m.createDataMessage(0, client_id, client_group, text)
 			UDPsocket.sendto(msg, address_server)
 
+		#should print user list but (Not working yet because there are problems concerning the user list)
 		elif 'USERS' in user_input:
 			for keys, value in user_list.items():
 				for under_key, under_value in value.items():

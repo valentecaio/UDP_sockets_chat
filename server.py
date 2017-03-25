@@ -18,7 +18,7 @@ PUBLIC_GROUP = 1
 
 
 # add client to clients list
-# TODO: usernameAlreadyExists and invalidUsername
+# TODO: usernameAlreadyExists
 #I think invalid username has to be treated in the client part because after we added the spaces we don't know if the client had spaces in hie username which wouldn't be allowed.
 def add_client(addr, username):
 	# avoid adding clients already added
@@ -40,6 +40,13 @@ def send_message(msg, receivers):
 	for id, client in receivers.items():
 		UDPSock.sendto(msg, client['addr'])
 		print("Sent msg to client " + str(id))
+# function to update the list of all users if somebody joined or left
+def update_user_list():
+	for id, client in clients.items():
+		msg = m.createUserListResponse(0, client['id'], clients)
+		UDPSock.sendto(msg, client['addr'])
+	return
+
 
 
 ''' thread functions '''
@@ -127,6 +134,7 @@ def send_data():
 				# send answer
 				send_message(data, clients)
 				'''
+
 
 
 def run_threads():
