@@ -4,7 +4,7 @@ from time import sleep
 import threading
 import struct
 import messages as m
-
+from pprint import pprint
 
 address_server = ('localhost', 1212)
 UDPsocket = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
@@ -87,14 +87,15 @@ def main_loop():
 					client_id = int(unpacked_data['clientID'])
 					client_group = int(unpacked_data['groupID'])
 
-					print("Connected with id %s to group %s"
-						  % (client_id, client_group))
+					print("Connected to group %s with id %s"
+						  % (client_group, client_id))
 
 					# send Acknowledgment as response
 					response = m.acknowledgement(m.TYPE_CONNECTION_ACCEPT, 0, client_id)
 					UDPsocket.sendto(response, address_server)
 
-					# send user list request (this message will only be send once after the connection
+					# send user list request
+					# this message will only be send once after the connection
 					response = m.createUserListRequest(0, client_id)
 					UDPsocket.sendto(response, address_server)
 
@@ -102,12 +103,12 @@ def main_loop():
 					content = unpacked_data['content']
 					text = content[2:]
 					print("%s: %s" % (unpacked_data['sourceID'], text.decode()))
-					# default case, it's here only to help tests
-				if msg_type == m.TYPE_USER_LIST_RESPONSE:							#NOT WORKING YET
+
+				if msg_type == m.TYPE_USER_LIST_RESPONSE:
 					print('received user list response')
 					global user_list
-					user_list= m.unpack_user_list_response(data)			#no error massege but comands after that are not treated. makes absolutely no sense....
-					print(user_list[unpacked_data['client_id']]['username'])
+					user_list = m.unpack_user_list_response(data)
+					pprint(user_list)
 
 					#text = content[2:]
 					#print("%s: %s" % (unpacked_data['sourceID'], text.decode()))
