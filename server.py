@@ -122,17 +122,6 @@ def send_data():
 				UDPSock.sendto(response, client['addr'])
 
 
-
-			# default case, it's here only to help tests
-			'''
-			else:
-				print('Received "' + data.decode() + '" from', addr)
-
-				# send answer
-				send_message(data, clients)
-				'''
-
-
 def run_threads():
 	# start a thread to receive data
 	sender_thread = threading.Thread(target=receive_data)

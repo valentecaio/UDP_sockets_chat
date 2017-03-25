@@ -280,7 +280,7 @@ def unpack_protocol_header(msg):
 	return {'A': A, 'S': S, R: 'R', 'type': type, 'sourceID': sourceID,
 			'groupID': groupID, 'lenght': lenght, 'content': content}
 
-# unpack function for the connection accept. Actually only the unpacking of the clientID is requiered here because the rest was already correct unpacked, when this function is called. Unfortunately I didn't managed to unpack a single element.
+# unpack function for the connection accept.
 def unpack_connection_accept(msg):
 	firstByte, sourceID, groupID, lenght, clientID = struct.unpack_from(">BBBHB", msg, 0)
 	type = firstByte >> 3

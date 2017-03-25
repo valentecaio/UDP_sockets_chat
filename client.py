@@ -81,11 +81,14 @@ def main_loop():
 			# treat non-acknowledgement messages
 			else:
 				if msg_type == m.TYPE_CONNECTION_ACCEPT:
-					global client_id 													#needed to modify a global variable
-					unpacked_data = m.unpack_connection_accept(data)					#a new unpack function was needed, because the ID was unpacked as a string. I think that is the reason it didn't work.
-					client_id = int(unpacked_data['clientID'])
+					unpacked_data = m.unpack_connection_accept(data)
+					global client_id
 					global client_group
-					client_group = 1
+					client_id = int(unpacked_data['clientID'])
+					client_group = int(unpacked_data['groupID'])
+
+					print("Connected with id %s to group %s"
+						  % (client_id, client_group))
 
 					# send Acknowledgment as response
 					response = m.acknowledgement(m.TYPE_CONNECTION_ACCEPT, 0, client_id)
