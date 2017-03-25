@@ -6,11 +6,12 @@ import struct
 import queue
 
 clients = {}
+next_id = 0
 UDPSock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 server_address = ('localhost', 1212)
 messages_queue = queue.Queue()
 
-# clients state constants
+# constants
 ST_CONNECTING = 0
 ST_CONNECTED = 1
 
@@ -27,7 +28,10 @@ def connect_client(addr, username):
 			return'''
 
 	# add client to clients dict
-	client_id = len(clients)
+	global next_id
+	client_id = next_id
+	next_id += 1
+
 	client = {'id': client_id, 'addr': addr, 'username': username, 'state': ST_CONNECTING, 'group': PUBLIC_GROUP}
 	clients[str(client_id)] = client
 
