@@ -12,6 +12,12 @@ client_id = 0
 client_group = 0
 user_list = {}
 
+''' user commands '''
+CMD_CONNECT = 'CONNECT'
+CMD_SEND = 'SEND'
+CMD_USER_LIST = 'USERS'
+CMD_HELP = 'HELP'
+
 ''' thread functions '''
 
 
@@ -20,27 +26,36 @@ def read_keyboard():
 	print("Type messages to send: \t")
 	while 1:
 		user_input = input("")
+		space = user_input.find(' ')
+		user_cmd = (user_input[:space] if space is not -1 else user_input)
 
-		if 'CONNECT' in user_input:
-			username = user_input[8:].strip()
+		print('command ' + user_cmd)
+		if user_cmd == CMD_CONNECT:
+			username = user_input[len(CMD_CONNECT)+1:].strip()
 			msg = m.createConnectionRequest(0, username)
 			UDPsocket.sendto(msg, address_server)
 
-
-		elif 'SEND' in user_input:
-			text = user_input[5:].encode('utf-8')
+		elif user_cmd == CMD_SEND:
+			text = user_input[len(CMD_SEND)+1:].encode('utf-8')
 			msg = m.createDataMessage(0, client_id, client_group, text)
 			UDPsocket.sendto(msg, address_server)
 
-		elif 'USERS' in user_input:
+		elif user_cmd == CMD_USER_LIST:
 			for keys, value in user_list.items():
 				for under_key, under_value in value.items():
 					print(under_key)
 					print(under_value)
 
+		elif user_cmd == CMD_HELP:
+			print('\t%s to show this help,\n'
+				  '\t%s to send a message,\n'
+				  '\t%s to connect to server\n'
+				  '\t%s to get the users list\n'
+				  % (CMD_HELP,CMD_SEND,CMD_CONNECT,CMD_USER_LIST))
 
 		else:
-			print("This is not a valid command. Type HELP to get some help.")
+			print("This is not a valid command. Type "
+				  + CMD_HELP + "to get some help.")
 			continue
 
 		#UDPsocket.sendto(msg, address_server)
@@ -48,7 +63,6 @@ def read_keyboard():
 
 # used by server listener thread
 def main_loop():
-	print('listening server')
 	while 1:
 		try:
 			data, addr = UDPsocket.recvfrom(1024)
