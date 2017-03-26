@@ -10,17 +10,23 @@ try:
 except:
 	pprint = print
 
-address_server = ('localhost', 1212)
-UDPsocket = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
-client_id = 0
-client_group = 0
-user_list = {}
-
 ''' user commands '''
 CMD_CONNECT = 'CONNECT'
 CMD_SEND = 'SEND'
 CMD_USER_LIST = 'USERS'
 CMD_HELP = 'HELP'
+
+''' user states '''
+ST_DISCONNECTED = 0
+ST_CONNECTED = 1
+
+''' global variables '''
+address_server = ('localhost', 1212)
+UDPsocket = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
+client_id = 0
+client_group = 0
+client_state = ST_DISCONNECTED
+user_list = {}
 
 ''' thread functions '''
 
@@ -40,14 +46,14 @@ def read_keyboard():
 				msg = m.createConnectionRequest(0, username)
 				UDPsocket.sendto(msg, address_server)
 			else:
-				print('Your username can not contain more than 8 characters. Please choose another one.')
+				print('Your username can not contain more than 8 characters. '
+					  'Please choose another one.')
 				continue
 
 		elif user_cmd == CMD_SEND:
 			text = user_input[len(CMD_SEND)+1:].encode('utf-8')
 			msg = m.createDataMessage(0, client_id, client_group, text)
 			UDPsocket.sendto(msg, address_server)
-
 
 		elif user_cmd == CMD_USER_LIST:
 			'''
@@ -78,6 +84,8 @@ def main_loop():
 	global client_group
 	global user_list
 	global client_id
+	global client_state
+
 	while 1:
 		try:
 			data, addr = UDPsocket.recvfrom(1024)
@@ -98,10 +106,13 @@ def main_loop():
 				if msg_type == m.TYPE_CONNECTION_ACCEPT:
 					unpacked_data = m.unpack_connection_accept(data)
 					client_id = int(unpacked_data['clientID'])
-					client_group = 1										#the group id in that message is not the actual group (which will be 1 for public group after the connection). See specifications
+					# the group id in that message is not the actual group
+					# which will be 1 for public group after the connection
+					client_group = 1
 
 					print("Connected to group %s with id %s"
 						  % (client_group, client_id))
+					client_state = ST_CONNECTED
 
 					# send Acknowledgment as response
 					response = m.acknowledgement(msg_type, 0, client_id)
@@ -114,8 +125,11 @@ def main_loop():
 
 				if msg_type == m.TYPE_DATA_MESSAGE:
 					content = unpacked_data['content']
-					text = content[2:]
-					print("%s: %s" % (user_list[unpacked_data['sourceID']]['username'], text.decode()))
+					text = content[2:].decode()
+					id = unpacked_data['sourceID']
+					source = user_list[id]
+					username = source['username']
+					print("%s [%s]: %s" % (username, str(id), text))
 
 				if msg_type == m.TYPE_USER_LIST_RESPONSE:
 					user_list = m.unpack_user_list_response(data)
@@ -127,7 +141,10 @@ def main_loop():
 					response = m.acknowledgement(msg_type, 0, client_id)
 					UDPsocket.sendto(response, address_server)
 
-		except:
+		except Exception as exc:
+			# hide errors if disconnected
+			if client_state is not ST_DISCONNECTED:
+				print(exc)
 			continue
 
 

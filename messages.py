@@ -279,7 +279,7 @@ def unpack_protocol_header(msg):
 	R = firstByte >> 2 & 1
 	S = firstByte >> 1 & 1
 	A = firstByte & 1
-	return {'A': A, 'S': S, R: 'R', 'type': type, 'sourceID': sourceID,
+	return {'A': A, 'S': S, 'R': R, 'type': type, 'sourceID': sourceID,
 			'groupID': groupID, 'lenght': lenght, 'content': content}
 
 # unpack function for the connection accept.
@@ -318,7 +318,7 @@ def unpack_user_list_response(msg):
 
 		user = {'client_id': client_id, 'client_group': client_group,
 				'username': username, 'ip':ip, 'port':port}
-		user_list[str(client_id)] = user
+		user_list[client_id] = user
 
 		offset += 16
 	return user_list

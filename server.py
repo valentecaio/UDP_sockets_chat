@@ -50,13 +50,14 @@ def send_message(msg, receivers):
 	for id, client in receivers.items():
 		UDPSock.sendto(msg, client['addr'])
 		print("Sent msg to client " + str(id))
+
+
 # function to update the list of all users if somebody joined or left
 def update_user_list():
 	for id, client in clients.items():
 		msg = m.createUserListResponse(0, client['id'], clients)
 		UDPSock.sendto(msg, client['addr'])
 	return
-
 
 
 ''' thread functions '''
@@ -116,15 +117,15 @@ def send_data():
 				# get message text
 				content = unpacked_data['content']
 				text = content[2:]
-				print("%s: %s" % (unpacked_data['sourceID'], text.decode()))
-				print(content[:2])
+				print("%s >> %s" % (unpacked_data['sourceID'], text.decode()))
 				groupID = unpacked_data['groupID']
+
 				# resend it to users in same group
 				receivers = {}
 
-				for key in clients:
-					if clients[key]['group'] == groupID:
-						receivers[key] = clients[key]
+				for id,client in clients.items():
+					if client['group'] == groupID:
+						receivers[id] = clients[id]
 				send_message(data, receivers)
 
 			elif msg_type == m.TYPE_USER_LIST_REQUEST:
