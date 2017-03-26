@@ -211,9 +211,9 @@ def groupInvitationAccept(S,sourceID, communicationType, groupID, clientID):
 
 
 #The structure is the same as for the invitation accept just with a different type declaration.
-def groupInvitationReject(S,sourceID, communicationType, groupID, clientID):
+def groupInvitationReject(S,sourceID, communicationType, groupID, clientID, R=0):
 	headerLength = 0x008
-	firstByte = generateFirstByte(TYPE_GROUP_INVITATION_REJECT, 0, S, 0)
+	firstByte = generateFirstByte(TYPE_GROUP_INVITATION_REJECT, R, S, 0)
 	buf = ctypes.create_string_buffer(headerLength)
 	struct.pack_into('>BBBHBBB', buf, 0, firstByte, sourceID, 0, headerLength, communicationType, groupID, clientID)
 	return buf

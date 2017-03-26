@@ -170,7 +170,7 @@ def read_keyboard():
 				UDPsocket.sendto(msg, address_server)
 
 			elif user_cmd == CMD_DISJOINT:
-				if group_users[self_state]['group'] == 1:
+				if group_users[self_id]['group'] == 1:
 					print('You are already in the public group.')
 
 				else:
@@ -313,7 +313,8 @@ def main_loop():
 				elif msg_type == m.TYPE_GROUP_INVITATION_REJECT:
 					username = group_users[source_id]['username']
 					print('User ' + username + ' rejected your invitation.')
-
+					if header['R'] == 1:
+						print('We are sorry but nobody accepted your request.')
 					# send Acknowledgment
 					response = m.acknowledgement(msg_type, 0, self_id)
 					UDPsocket.sendto(response, address_server)
