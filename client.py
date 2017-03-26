@@ -35,6 +35,7 @@ client_state = ST_DISCONNECTED
 
 # used by user interface thread
 def read_keyboard():
+	global client_state
 	print("Type messages to send: \t")
 	while 1:
 		user_input = input("")
@@ -42,47 +43,52 @@ def read_keyboard():
 		user_cmd = (user_input[:space] if space is not -1 else user_input)
 		print('command ' + user_cmd)
 
-		if user_cmd == CMD_CONNECT:
-			username = user_input[len(CMD_CONNECT) + 1:].strip()
-			if len(username) <= 8:
-				msg = m.createConnectionRequest(0, username)
-				UDPsocket.sendto(msg, address_server)
-			else:
-				print('Your username can not contain more than 8 characters. '
-					  'Please choose another one.')
-				continue
-
-		elif user_cmd == CMD_SEND:
-			text = user_input[len(CMD_SEND)+1:].encode('utf-8')
-			msg = m.createDataMessage(0, client_id, client_group, text)
-			UDPsocket.sendto(msg, address_server)
-
-		elif user_cmd == CMD_DISCONNECT:
-			msg = m.disconnectionRequest(0, client_id)
-			UDPsocket.sendto(msg, address_server)
-
-		elif user_cmd == CMD_USER_LIST:
-			'''
-			for keys, value in user_list.items():
-				for under_key, under_value in value.items():
-					print(under_key)
-					print(under_value)
-			'''
-			pprint(user_list)
-
-		elif user_cmd == CMD_HELP:
+		if user_cmd == CMD_HELP:
 			print(	'\t%s to show this help,\n'
 				  	'\t%s to send a message,\n'
 				  	'\t%s to connect to server\n'
 					'\t%s to get the users list\n'
 					'\t%s to disconnect\n'
-
 				  % (CMD_HELP,CMD_SEND,CMD_CONNECT,CMD_USER_LIST, CMD_DISCONNECT))
 
+		elif user_cmd == CMD_CONNECT:
+			# abort if already connected
+			if client_state is not ST_DISCONNECTED:
+				print("You can't use this command because you're already connected")
+				continue
+
+			# abort if username is too long
+			username = user_input[len(CMD_CONNECT) + 1:].strip()
+			if len(username) > 8:
+				print('Your username can not contain more than 8 characters. '
+					  'Please choose another one.')
+				continue
+
+			msg = m.createConnectionRequest(0, username)
+			UDPsocket.sendto(msg, address_server)
+
 		else:
-			print("This is not a valid command. Type "
-				  + CMD_HELP + "to get some help.")
-			continue
+			# abort others commands if not connected
+			if client_state is not ST_CONNECTED:
+				print("You can't use this command because you're not connected")
+				continue
+
+			if user_cmd == CMD_SEND:
+				text = user_input[len(CMD_SEND)+1:].encode('utf-8')
+				msg = m.createDataMessage(0, client_id, client_group, text)
+				UDPsocket.sendto(msg, address_server)
+
+			elif user_cmd == CMD_DISCONNECT:
+				msg = m.disconnectionRequest(0, client_id)
+				UDPsocket.sendto(msg, address_server)
+
+			elif user_cmd == CMD_USER_LIST:
+				pprint(user_list)
+
+			else:
+				print("This is not a valid command. Type "
+					  + CMD_HELP + "to get some help.")
+				continue
 
 		#UDPsocket.sendto(msg, address_server)
 
