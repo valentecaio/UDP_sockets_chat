@@ -1,6 +1,7 @@
 # Echo client program
 import socket
 import threading
+import traceback
 from time import sleep
 
 import messages as m
@@ -11,6 +12,7 @@ except:
 	pprint = print
 
 ''' user commands '''
+CMD_PRINT = 'PRINT'
 CMD_CONNECT = 'CONNECT'
 CMD_SEND = 'SEND'
 CMD_USER_LIST = 'USERS'
@@ -27,7 +29,6 @@ ST_CONNECTED = 1
 address_server = ('localhost', 1212)
 UDPsocket = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
 self_id = 0
-self_group = 0
 self_state = ST_DISCONNECTED
 group_users = {}
 group_invitations = {}
@@ -72,6 +73,11 @@ def read_keyboard():
 					'\t%s to disconnect\n'
 				  % (CMD_HELP,CMD_SEND,CMD_CONNECT,CMD_USER_LIST, CMD_DISCONNECT))
 
+		elif user_cmd == CMD_PRINT:
+			print("ID: %s, group: %s, state: %s,\n"
+				  % (self_id, group_users[self_id]['group'], self_state))
+			pprint(group_users)
+
 		elif user_cmd == CMD_CONNECT:
 			# abort if already connected
 			if self_state is not ST_DISCONNECTED:
@@ -96,7 +102,7 @@ def read_keyboard():
 
 			if user_cmd == CMD_SEND:
 				text = user_input[len(CMD_SEND)+1:].encode('utf-8')
-				msg = m.createDataMessage(0, self_id, self_group, text)
+				msg = m.createDataMessage(0, self_id, group_users[self_id]['group'], text)
 				UDPsocket.sendto(msg, address_server)
 
 			elif user_cmd == CMD_DISCONNECT:
@@ -106,22 +112,23 @@ def read_keyboard():
 			elif user_cmd == CMD_USER_LIST:
 				pprint(group_users)
 
-			elif user_input == CMD_ACCEPT_INVITATION:
+			elif user_cmd == CMD_ACCEPT_INVITATION:
 				args, invalid_arg = getIntArgs(user_input)
 
-				print(args)
+				group_id = args[0]
 				# verify if arguments are valid
 				if (len(args) < 1) or invalid_arg \
-						or (args[1] not in group_invitations):
+						or (group_id not in group_invitations):
 					print("Usage:\n> %s <group id>\n"
 						  "Where <group id> must be a valid id" % (user_input))
 					continue
 
 				# create acceptation message and send it
-				group_type = group_invitations[args[1]]
+				group_type = group_invitations[group_id]
 				accept = m.groupInvitationAccept(0, self_id, group_type,
-												 args[1], self_id)
+												 group_id, self_id)
 				UDPsocket.sendto(accept, address_server)
+				print('Message sent to server')
 
 			elif user_cmd == CMD_CREATE_GROUP:
 				args, invalid_arg = getIntArgs(user_input)
@@ -147,7 +154,6 @@ def read_keyboard():
 
 # used by server listener thread
 def main_loop():
-	global self_group
 	global group_users
 	global self_id
 	global self_state
@@ -169,7 +175,6 @@ def main_loop():
 				if msg_type == m.TYPE_DISCONNECTION_REQUEST:
 					#reset user data
 					group_users.clear()
-					self_group = 0
 					self_id = 0
 					print('You have been disconnected.')
 
@@ -177,12 +182,8 @@ def main_loop():
 			else:
 				if msg_type == m.TYPE_CONNECTION_ACCEPT:
 					self_id = m.unpack_connection_accept_content(data)
-					# the group id in that message is not the actual group
-					# which will be 1 for public group after the connection
-					self_group = 1
 
-					print("Connected to group %s with id %s"
-						  % (self_group, self_id))
+					print("Connected to PUBLIC GROUP with id %s" + str(self_id))
 					self_state = ST_CONNECTED
 
 					# send Acknowledgment as response
@@ -201,6 +202,9 @@ def main_loop():
 					username = source['username']
 					print("%s [%s]: %s" % (username, str(source_id), text))
 
+				elif msg_type == m.TYPE_GROUP_CREATION_ACCEPT:
+					print("Your group was created.")
+
 				elif msg_type == m.TYPE_USER_LIST_RESPONSE:
 					group_users = m.unpack_user_list_response_content(data)
 
@@ -215,10 +219,8 @@ def main_loop():
 					changed_users = m.unpack_user_list_response_content(data)
 
 					# update user list
-					# user_list.update(changed_users)
 					for id, client in changed_users.items():
-						if id not in group_users:
-							group_users[id] = client
+						group_users[id] = client
 
 					# send Acknowledgment as response
 					response = m.acknowledgement(msg_type, 0, self_id)
@@ -260,7 +262,7 @@ def main_loop():
 		except Exception as exc:
 			# hide errors if disconnected
 			if self_state is not ST_DISCONNECTED:
-				print(exc.__traceback__)
+				print(traceback.format_exc())
 			continue
 
 

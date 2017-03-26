@@ -203,7 +203,11 @@ def groupInvitationRequest(S, sourceID, communicationType, groupID, clientID):
 #Similar structure to the invitation. The sender is now the person that has been invited. That means the source ID changed.
 # The last 3 inputs are the same as in the correspondig invitation.
 def groupInvitationAccept(S,sourceID, communicationType, groupID, clientID):
-	return groupInvitationRequest(S, sourceID, communicationType, groupID, clientID)
+	headerLength = 0x008 	# TODO: check this because spec says 0x007 but it can't be right
+	firstByte = generateFirstByte(TYPE_GROUP_INVITATION_ACCEPT, 0, S, 0)
+	buf = ctypes.create_string_buffer(headerLength)
+	struct.pack_into('>BBBHBBB', buf, 0, firstByte, sourceID, 0, headerLength, communicationType, groupID, clientID)
+	return buf
 
 
 #The structure is the same as for the invitation accept just with a different type declaration.
@@ -236,7 +240,8 @@ def groupDissolution(S, groupID):
 	struct.pack_into('>BBBH', buf, 0, firstByte, userID, groupID, headerLength)
 	return buf
 
-# message to update list of users (disconnections are treated seperately). updated users is a dictionary of the users that should be updated.)
+# message to update list of users (disconnections are treated seperately).
+# updated users is a dictionary of the users that should be updated.)
 
 def createUpdateList(S, updated_users):
 	#broadcast groupID
@@ -346,7 +351,7 @@ def unpack_user_list_response_content(msg):
 		ip = socket.inet_ntoa(struct.pack('>L',ip_int))
 		username = username.decode().strip()
 
-		user = {'client_id': client_id, 'client_group': client_group,
+		user = {'id': client_id, 'group': client_group,
 				'username': username, 'ip':ip, 'port':port}
 		user_list[client_id] = user
 
