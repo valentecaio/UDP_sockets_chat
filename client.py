@@ -20,6 +20,7 @@ CMD_HELP = 'HELP'
 CMD_DISCONNECT = 'DISCONNECT'
 CMD_CREATE_GROUP = 'GCREATE'
 CMD_ACCEPT_INVITATION = 'ACCEPT'
+CMD_REJECT_INVITATION = 'REJECT'
 
 ''' user states '''
 ST_DISCONNECTED = 0
@@ -123,11 +124,31 @@ def read_keyboard():
 						  "Where <group id> must be a valid id" % (user_input))
 					continue
 
+
+				sender_id = group_invitations[group_id]['creator']
 				# create acceptation message and send it
-				group_type = group_invitations[group_id]
-				accept = m.groupInvitationAccept(0, self_id, group_type,
+				group_type = group_invitations[group_id]['type']
+				accept = m.groupInvitationAccept(0, sender_id, group_type,
 												 group_id, self_id)
 				UDPsocket.sendto(accept, address_server)
+
+			elif user_cmd == CMD_REJECT_INVITATION:
+				args, invalid_arg = getIntArgs(user_input)
+				group_id = args[0]
+				# verify if arguments are valid
+				if (len(args) < 1) or invalid_arg \
+						or (group_id not in group_invitations):
+					print("Usage:\n> %s <group id>\n"
+						  "Where <group id> must be a valid id" % (user_input))
+					continue
+
+				# create rejection message and send it
+				sender_id = group_invitations[group_id]['creator']
+				group_type = group_invitations[group_id]['type']
+				reject = m.groupInvitationReject(0,sender_id, group_type,
+												 group_id, self_id)
+				UDPsocket.sendto(reject, address_server)
+				del group_invitations[group_id]
 
 			elif user_cmd == CMD_CREATE_GROUP:
 				args, invalid_arg = getIntArgs(user_input)
@@ -183,7 +204,7 @@ def main_loop():
 				if msg_type == m.TYPE_CONNECTION_ACCEPT:
 					self_id = m.unpack_connection_accept_content(data)
 
-					print("Connected to PUBLIC GROUP with id %s" + str(self_id))
+					print("Connected to CENTRALIZED GROUP with id %s" + str(self_id))
 					self_state = ST_CONNECTED
 
 					# send Acknowledgment as response
@@ -248,19 +269,33 @@ def main_loop():
 
 				elif msg_type == m.TYPE_GROUP_INVITATION_REQUEST:
 					group_type, group_id, member_id = m.unpack_group_invitation_request(data)
-
+					invitation = {}
+					invitation['type']= group_type
+					invitation['id']= group_id
+					invitation['creator']= source_id
 					# add invitation to invitations in stand-by
-					group_invitations[group_id] = group_type
+					group_invitations[group_id] = invitation    #ATTENTION should be deleted for the ack of this message
 
 					# warn user about invitation
 					group_type_label = ('public' if group_type is 0 else 'private')
 					print('User %s[%s] is inviting you to join a %s group\n'
 						  'Type "%s %s" to join group'
 						  % (group_users[source_id]['username'], source_id,
-							 group_type_label, CMD_ACCEPT_INVITATION, group_id))
+							 group_type_label, CMD_ACCEPT_INVITATION, group_id))    # ATTENTION!! Rejection has to be added here (I was to dumb to do that string stuff)
+
+
 
 				elif msg_type == m.TYPE_GROUP_DISSOLUTION:
 					print('Your group has been deleted because you were the only member left. you are now in the public group again.')
+
+					# send Acknowledgment
+					response = m.acknowledgement(msg_type, 0, self_id)
+					UDPsocket.sendto(response, address_server)
+
+					# tell user that his invitation has been rejected
+				elif msg_type == m.TYPE_GROUP_INVITATION_REJECT:
+					username = group_users[source_id]['username']
+					print('User ' + username + ' rejected your invitation.')
 
 					# send Acknowledgment
 					response = m.acknowledgement(msg_type, 0, self_id)

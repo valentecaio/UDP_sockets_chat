@@ -79,7 +79,10 @@ def update_user_list(updated_users):
 #This function changes the group of a user.
 #It takes care that a group dissolution will be initiated if only one user is left (except of course for the public group)
 def change_group(user_id, new_group_id):
+
 	#change groups on the server
+	global clients
+	global groups
 	user = clients[user_id]
 	old_group_id = user['group']
 	changed_users = {}
@@ -94,16 +97,26 @@ def change_group(user_id, new_group_id):
 
 	#If only one user remains delete group and send a group dissolution, pack that guy in the public group an inform everybody about the changes.
 	if len(old_group['members']) == 1 and old_group_id != PUBLIC_GROUP_ID:
-		msg = m.groupDissolution(0, old_group_id)
+
+		#only member in the old group
 		user_left = old_group['members'][0]
+
+		#send group dissolution
+		msg = m.groupDissolution(0, old_group_id)
 		UDPSock.sendto(msg, user_left['addr'])
+
+		#delete old group in the group list
 		del groups[old_group_id]
+
+		#change group of old user to public group
 		groups[PUBLIC_GROUP_ID]['members'].append(user_left)
-		user_left['group']=PUBLIC_GROUP_ID
-		user['group'] = new_group['id']
-		changed_users[str(user_left['id'])] = user_left
+		clients[user_left['id']]['group']=PUBLIC_GROUP_ID
+
+		#update changes for everyone
 		changed_users[str(user['id'])] = user
+		changed_users[str(user_left['id'])] = user_left
 		update_user_list(changed_users)
+
 	else:
 		changed_users[str(user['id'])] = user
 		update_user_list(changed_users)
@@ -203,7 +216,6 @@ def send_data():
 				print(str(source_id) + ': GROUP_INVITATION_ACCEPT')
 				group_type, group_id, member_id = \
 					m.unpack_group_invitation_accept(data)
-
 				updated_users = {}
 
 				# if group doesn't exist, create it and add creator to it
@@ -221,11 +233,13 @@ def send_data():
 												groups[group_id]['type'],
 												group_id)
 					UDPSock.sendto(msg, clients[creator_id]['addr'])
+				change_group(member_id, group_id)
+
 
 				# TODO: this only works to groups with 2 persons --> don't understand the problem :/
 
 				# add source client to group
-				change_group(source_id, group_id)
+				#change_group(source_id, group_id)
 				#updated_users[source_id] = clients[source_id]
 
 				# update all users in group --> changed that. I think he has to update all of the users.
@@ -284,6 +298,27 @@ def send_data():
 														  id)
 					UDPSock.sendto(invitation, clients[id]['addr'])
 					print('Sent GROUP_INVITATION_REQUEST to client ' + str(id))
+
+			elif msg_type == m.TYPE_GROUP_INVITATION_REJECT:
+				print(str(source_id) + ': GROUP_INVITATION_REJECT')
+				group_type, group_id, member_id = \
+					m.unpack_group_invitation_accept(data)
+
+				#delete this member in the group_invitation dict
+				#reject_member = clients[source_id]															gives error that not in list
+				#group_invitations[group_id]['members'].remove(reject_member)
+
+				#send rejection to user that asked
+				msg = m.groupInvitationReject(0, group_invitations[group_id]['creator'],
+											group_invitations[group_id]['type'],
+											group_id, member_id)
+				UDPSock.sendto(msg, clients[source_id]['addr'])
+				# delete from group_invitation dict if only one member left
+				if len(group_invitations[group_id]['members']) == 1:
+					del group_invitations[group_id]
+
+
+
 
 
 def run_threads():
