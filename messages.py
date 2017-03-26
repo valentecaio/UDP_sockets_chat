@@ -310,7 +310,7 @@ def acknowledgement(type, S, sourceID):
 # content is the optinal header part of the message
 # throws an error if trying to unpack messages without header
 # This functions is called to identify a message. Some messages might require a special unpacking function after that
-def unpack_protocol_header(msg):
+def unpack_header(msg):
 	firstByte, sourceID, groupID, lenght, content \
 		= struct.unpack_from(">BBBH" + str(len(msg) - 5) + "s",  msg, 0)
 	type = firstByte >> 3
@@ -320,15 +320,11 @@ def unpack_protocol_header(msg):
 	return {'A': A, 'S': S, 'R': R, 'type': type, 'sourceID': sourceID,
 			'groupID': groupID, 'lenght': lenght, 'content': content}
 
+
 # unpack function for the connection accept.
-def unpack_connection_accept(msg):
-	firstByte, sourceID, groupID, lenght, clientID = struct.unpack_from(">BBBHB", msg, 0)
-	type = firstByte >> 3
-	R = firstByte >> 2 & 1
-	S = firstByte >> 1 & 1
-	A = firstByte & 1
-	return {'A': A, 'S': S, R: 'R', 'type': type, 'sourceID': sourceID,
-			'groupID': groupID, 'lenght': lenght, 'clientID': clientID}
+def unpack_connection_accept_content(msg):
+	clientID = struct.unpack_from(">B", msg, 5)[0]
+	return clientID
 
 
 # unpack function for a data message if the length of the payload is needed
@@ -344,7 +340,7 @@ def unpack_data_message(msg):
 
 
 # unpack user list in a dictionary
-def unpack_user_list_response(msg):
+def unpack_user_list_response_content(msg):
 	user_list = {}
 
 	offset = 5
@@ -367,24 +363,6 @@ def unpack_group_invitation_request(msg):
 	group_type, group_id, member_id = struct.unpack_from(">BBB", msg, 5)
 	return group_type, group_id, member_id
 
-
-# unpack user list in a dictionary
-def unpack_user_list_response(msg):
-	user_list = {}
-
-	offset = 5
-	while offset < len(msg):
-		client_id, client_group, username, ip_int, port = struct.unpack_from(">BB8sLH", msg, offset)
-
-		ip = socket.inet_ntoa(struct.pack('>L',ip_int))
-		username = username.decode().strip()
-
-		user = {'client_id': client_id, 'client_group': client_group,
-				'username': username, 'ip':ip, 'port':port}
-		user_list[client_id] = user
-
-		offset += 16
-	return user_list
 
 #unpack error code of connection reject
 def unpack_error_type(msg):

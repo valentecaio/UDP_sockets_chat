@@ -87,12 +87,12 @@ def send_data():
 			continue
 
 		# unpack header
-		unpacked_data = m.unpack_protocol_header(data)
-		msg_type = unpacked_data['type']
-		source_id = unpacked_data['sourceID']
+		header = m.unpack_header(data)
+		msg_type = header['type']
+		source_id = header['sourceID']
 
 		# treat acknowledgement messages according to types
-		if unpacked_data['A']:
+		if header['A']:
 			print('Received acknowledgement of type ' + str(msg_type))
 			if msg_type == m.TYPE_CONNECTION_ACCEPT:
 				# code enter here when receiving a connectionAccept acknowledgement
@@ -111,7 +111,7 @@ def send_data():
 		else:
 			if msg_type == m.TYPE_CONNECTION_REQUEST:
 				# get username from message content
-				username = unpacked_data['content'].decode().strip()
+				username = header['content'].decode().strip()
 				#checks username and responses according to that check (allows or denies connection)
 				if check_username(username) == True:
 					if len(clients) < 250:
@@ -133,10 +133,10 @@ def send_data():
 			elif msg_type == m.TYPE_DATA_MESSAGE:
 				# get message text
 				# should send ack
-				content = unpacked_data['content']
+				content = header['content']
 				text = content[2:]
-				print("%s >> %s" % (unpacked_data['sourceID'], text.decode()))
-				groupID = unpacked_data['groupID']
+				print("%s >> %s" % (header['sourceID'], text.decode()))
+				groupID = header['groupID']
 
 				# resend it to users in same group
 				receivers = {}
