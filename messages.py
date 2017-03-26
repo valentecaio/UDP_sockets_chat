@@ -399,10 +399,3 @@ def unpack_group_creation_request(msg):
 if __name__ == '__main__':
 		pass
 
-
-	### examples ###
-
-	# Sender
-	#buf = ctypes.create_string_buffer(7)
-	# put data into the buffer
-	#struct.pack_into('>B3sBH', buf, 0, 0b00000010, b'abc', 2, 455)

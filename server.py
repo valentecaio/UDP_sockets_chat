@@ -236,13 +236,14 @@ def send_data():
 					# change creator to new group
 					creator_id = groups[group_id]['creator']
 					change_group(creator_id, group_id)
-					pprint(groups)
+
 
 				else:
 					# remove user from invitation list
 					accept_member = clients[member_id]
 					group_invitations[group_id]['members'].remove(accept_member['id'])
-					pprint(groups)
+
+					#delete invitation if everybody responded
 				if len(group_invitations[group_id]['members']) == 0:
 					del group_invitations[group_id]
 					print('invitation has been deleted')
@@ -252,22 +253,9 @@ def send_data():
 												groups[group_id]['type'],
 												group_id)
 				UDPSock.sendto(msg, clients[creator_id]['addr'])
+				#change group of member
 				change_group(member_id, group_id)
 
-
-				# TODO: this only works to groups with 2 persons
-
-				# add source client to group
-				#change_group(source_id, group_id)
-				#updated_users[source_id] = clients[source_id]
-
-				# update all users in group --> changed that. I think he has to update all of the users.
-				#update_user_list(updated_users) --> should be now included in the change_group function
-
-				#msg = m.createUpdateList(0, updated_users)
-				#send_message(msg, group_id)
-
-				# TODO: warn users from old groups that both users left
 
 				# will change user to public group to use the functionalities of the cahnge_group function and delete him after that.
 			elif msg_type == m.TYPE_DISCONNECTION_REQUEST:
@@ -346,7 +334,7 @@ def send_data():
 			elif msg_type == m.TYPE_GROUP_DISJOINT_REQUEST:
 				change_group(source_id, PUBLIC_GROUP_ID)
 				print(str(source_id) + ': DISJOINT GROUP')
-				pprint(groups)
+
 
 				# send acknowledgement
 				response = m.acknowledgement(msg_type, 0, source_id)
