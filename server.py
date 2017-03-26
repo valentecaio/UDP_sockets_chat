@@ -39,7 +39,7 @@ def connect_client(addr, username):
 	next_id += 1
 
 	client = {'id': client_id, 'addr': addr, 'username': username, 'state': ST_CONNECTING, 'group': PUBLIC_GROUP}
-	clients[str(client_id)] = client
+	clients[client_id] = client
 
 	print('Connected to a new client: \t', client)
 	return client
@@ -94,7 +94,7 @@ def send_data():
 			if msg_type == m.TYPE_CONNECTION_ACCEPT:
 				# code enter here when receiving a connectionAccept acknowledgement
 				# change client state to connected
-				client = clients[ str(unpacked_data['sourceID']) ]
+				client = clients[unpacked_data['sourceID']]
 				client['state'] = ST_CONNECTED
 				# update list of other users
 				updated_user = {str(unpacked_data['sourceID']): client}
@@ -144,14 +144,14 @@ def send_data():
 
 			elif msg_type == m.TYPE_USER_LIST_REQUEST:
 				# send user list
-				client = clients[ str(unpacked_data['sourceID']) ]
+				client = clients[unpacked_data['sourceID']]
 				response = m.createUserListResponse(0, client['id'], clients)
 				print('send user list')
 				UDPSock.sendto(response, client['addr'])
 
 			elif msg_type == m.TYPE_DISCONNECTION_REQUEST:
-				client = clients[str(unpacked_data['sourceID'])]
-				del clients[str(unpacked_data['sourceID'])]
+				client = clients[unpacked_data['sourceID']]
+				del clients[unpacked_data['sourceID']]
 				response = m.acknowledgement(msg_type, 0, client['id'])
 				UDPSock.sendto(response, client['addr'])
 				# tell other clients that user disconnected
