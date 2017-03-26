@@ -16,6 +16,7 @@ CMD_SEND = 'SEND'
 CMD_USER_LIST = 'USERS'
 CMD_HELP = 'HELP'
 CMD_DISCONNECT = 'DISCONNECT'
+CMD_CREATE_GROUP = 'GCREATE'
 
 ''' user states '''
 ST_DISCONNECTED = 0
@@ -26,8 +27,8 @@ address_server = ('localhost', 1212)
 UDPsocket = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
 client_id = 0
 client_group = 0
-user_list = {}
 client_state = ST_DISCONNECTED
+user_list = {}
 
 
 ''' thread functions '''
@@ -85,6 +86,17 @@ def read_keyboard():
 			elif user_cmd == CMD_USER_LIST:
 				pprint(user_list)
 
+			elif user_cmd == CMD_CREATE_GROUP:
+				args = user_input.split(' ')
+				args.remove('')		# removes spaces in the end
+				if len(args) < 4 or args[1] not in [0,1]:
+					print("Usage:\n> %s <group type> <member 1> <member 2> ... "
+						  "<member N>\nWhere <group type> must be 0 for "
+						  "centralized or 1 for decentralized\n"
+						  "At least two members must be invited", (CMD_CREATE_GROUP))
+				msg = m.groupCreationRequest(0,client_id,args[1],args[1:])
+				UDPsocket.sendto(msg, address_server)
+
 			else:
 				print("This is not a valid command. Type "
 					  + CMD_HELP + "to get some help.")
@@ -120,6 +132,7 @@ def main_loop():
 					client_group = 0
 					client_id = 0
 					print('You have been disconnected.')
+
 			# treat non-acknowledgement messages
 			else:
 				if msg_type == m.TYPE_CONNECTION_ACCEPT:
@@ -162,7 +175,9 @@ def main_loop():
 
 				elif msg_type == m.TYPE_UPDATE_LIST:
 					changed_users = m.unpack_user_list_response(data)
-					user_list.update(changed_users)
+
+					# update user list
+					# user_list.update(changed_users)
 					for id, client in changed_users.items():
 						if id not in user_list:
 							user_list[id] = client

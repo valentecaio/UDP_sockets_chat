@@ -26,6 +26,9 @@ TYPE_UPDATE_LIST = 0x0E
 TYPE_UPDATE_DISCONNECTION = 0x0F
 TYPE_DISCONNECTION_REQUEST = 0x10
 
+GROUP_CENTRALIZED = 0
+GROUP_DECENTRALIZED = 1
+
 ### internal functions ###
 
 def generateFirstByte(headerType, R, S, A):

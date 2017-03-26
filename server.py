@@ -154,9 +154,12 @@ def send_data():
 				del clients[str(unpacked_data['sourceID'])]
 				response = m.acknowledgement(msg_type, 0, client['id'])
 				UDPSock.sendto(response, client['addr'])
-				#tell other clients that user disconnected
+				# tell other clients that user disconnected
 				update_disconnection = m.updateDissconnction(0, unpacked_data['sourceID'])
 				send_message(update_disconnection, clients)
+
+			elif msg_type == m.TYPE_GROUP_CREATION_REQUEST:
+				client = clients[str(unpacked_data['sourceID'])]
 
 
 def run_threads():
