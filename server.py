@@ -171,6 +171,8 @@ def send_data():
 			elif msg_type == m.TYPE_USER_LIST_REQUEST:
 				print(str(source_id) + ': USER_LIST_REQUEST')
 				# send user list
+				group_id = clients[source_id]['group']
+				# TODO: it's always sending clients list
 				response = m.createUserListResponse(0, source_id, clients)
 				print('send USER_LIST_REQUEST to client ' + str(source_id))
 				UDPSock.sendto(response, clients[source_id]['addr'])
@@ -185,7 +187,7 @@ def send_data():
 				# if group doesn't exist, create it and add creator to it
 				if group_id not in groups:
 					# remove group from stanby dict and put it on active groups dict
-					groups[group_id] = group_invitations.pop(group_id) # TODO: check this line
+					groups[group_id] = group_invitations.pop(group_id)
 
 					# change creator to new group
 					creator_id = groups[group_id]['creator']
@@ -198,6 +200,8 @@ def send_data():
 												group_id)
 					UDPSock.sendto(msg, clients[creator_id]['addr'])
 
+				# TODO: this only works to groups with 2 persons
+
 				# add source client to group
 				change_group(source_id, group_id)
 				updated_users[source_id] = clients[source_id]
@@ -206,7 +210,7 @@ def send_data():
 				msg = m.createUpdateList(0, updated_users)
 				send_message(msg, group_id)
 
-				# TODO: update users of old groups
+				# TODO: warn users from old groups that both users left
 
 			elif msg_type == m.TYPE_DISCONNECTION_REQUEST:
 				print(str(source_id) + ': DISCONNECTION_REQUEST')

@@ -128,7 +128,6 @@ def read_keyboard():
 				accept = m.groupInvitationAccept(0, self_id, group_type,
 												 group_id, self_id)
 				UDPsocket.sendto(accept, address_server)
-				print('Message sent to server')
 
 			elif user_cmd == CMD_CREATE_GROUP:
 				args, invalid_arg = getIntArgs(user_input)
