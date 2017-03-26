@@ -87,11 +87,12 @@ def change_group(user_id, new_group_id):
 	old_group_id = user['group']
 	changed_users = {}
 
+	groups[old_group_id]['members'].remove(user)
+	groups[new_group_id]['members'].append(user)
+
 	new_group = groups[new_group_id]
 	old_group = groups[old_group_id]
 
-	old_group['members'].remove(user)
-	new_group['members'].append(user)
 
 	user['group'] = new_group['id']
 
@@ -216,39 +217,45 @@ def send_data():
 				print(str(source_id) + ': GROUP_INVITATION_ACCEPT')
 				group_type, group_id, member_id = \
 					m.unpack_group_invitation_accept(data)
-				updated_users = {}
-
+				global group_invitations
 				# if group doesn't exist, create it and add creator to it
 				if group_id not in groups:
-					# remove group from standby dict and put it on active groups dict
-					groups[group_id] = group_invitations.pop(group_id)
+
+					# create new group
+					new_group = {}
+					new_group['creator']= source_id
+					new_group['id'] = group_id
+					new_group['type'] = group_type
+					new_group['members'] = []
+					groups[group_id] = new_group
+
+					# remove user from invitation list
+					accept_member = clients[member_id]
+					group_invitations[group_id]['members'].remove(accept_member['id'])
 
 					# change creator to new group
 					creator_id = groups[group_id]['creator']
 					change_group(creator_id, group_id)
-					updated_users[creator_id] = clients[creator_id]
 
-					# send an creation accept to creator
-					msg = m.groupCreationAccept(0, creator_id,
+
+				else:
+					# remove user from invitation list
+					accept_member = clients[member_id]
+					group_invitations[group_id]['members'].remove(accept_member['id'])
+
+					#delete invitation if everybody responded
+				if len(group_invitations[group_id]['members']) == 0:
+					del group_invitations[group_id]
+					print('invitation has been deleted')
+
+				# send an creation accept to creator
+				msg = m.groupCreationAccept(0, creator_id,
 												groups[group_id]['type'],
 												group_id)
-					UDPSock.sendto(msg, clients[creator_id]['addr'])
+				UDPSock.sendto(msg, clients[creator_id]['addr'])
+				#change group of member
 				change_group(member_id, group_id)
 
-
-				# TODO: this only works to groups with 2 persons --> don't understand the problem :/
-
-				# add source client to group
-				#change_group(source_id, group_id)
-				#updated_users[source_id] = clients[source_id]
-
-				# update all users in group --> changed that. I think he has to update all of the users.
-				#update_user_list(updated_users) --> should be now included in the change_group function
-
-				#msg = m.createUpdateList(0, updated_users)
-				#send_message(msg, group_id)
-
-				# TODO: warn users from old groups that both users left
 
 				# will change user to public group to use the functionalities of the cahnge_group function and delete him after that.
 			elif msg_type == m.TYPE_DISCONNECTION_REQUEST:
@@ -289,7 +296,7 @@ def send_data():
 				group_invitations[group_id] = {'creator': source_id,
 											   'id': group_id,
 											   'type': group_type,
-											   'members': []}
+											   'members': members}
 
 				# invite members to group
 				for id in members:
@@ -305,17 +312,33 @@ def send_data():
 					m.unpack_group_invitation_accept(data)
 
 				#delete this member in the group_invitation dict
-				#reject_member = clients[source_id]															gives error that not in list
-				#group_invitations[group_id]['members'].remove(reject_member)
+				reject_member = clients[member_id]
+				group_invitations[group_id]['members'].remove(reject_member['id'])
 
-				#send rejection to user that asked
-				msg = m.groupInvitationReject(0, group_invitations[group_id]['creator'],
-											group_invitations[group_id]['type'],
-											group_id, member_id)
-				UDPSock.sendto(msg, clients[source_id]['addr'])
-				# delete from group_invitation dict if only one member left
-				if len(group_invitations[group_id]['members']) == 1:
+				# delete from group_invitation dict if nobody accepted
+				if len(group_invitations[group_id]['members']) == 0 and group_id not in groups:
+					msg = m.groupInvitationReject(0, group_invitations[group_id]['creator'],                            # put flag if last user rejected
+											  group_invitations[group_id]['type'],
+										  group_id, member_id, 1)
 					del group_invitations[group_id]
+					print('invitation has been deleted')
+				else:
+					msg = m.groupInvitationReject(0, group_invitations[group_id]['creator'],
+												  group_invitations[group_id]['type'],
+												  group_id, member_id)
+
+				UDPSock.sendto(msg, clients[source_id]['addr'])
+
+
+
+			elif msg_type == m.TYPE_GROUP_DISJOINT_REQUEST:
+				change_group(source_id, PUBLIC_GROUP_ID)
+				print(str(source_id) + ': DISJOINT GROUP')
+
+
+				# send acknowledgement
+				response = m.acknowledgement(msg_type, 0, source_id)
+				UDPSock.sendto(response, addr)
 
 
 

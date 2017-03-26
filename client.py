@@ -21,6 +21,7 @@ CMD_DISCONNECT = 'DISCONNECT'
 CMD_CREATE_GROUP = 'GCREATE'
 CMD_ACCEPT_INVITATION = 'ACCEPT'
 CMD_REJECT_INVITATION = 'REJECT'
+CMD_DISJOINT = 'DISJOINT'
 
 ''' user states '''
 ST_DISCONNECTED = 0
@@ -68,11 +69,15 @@ def read_keyboard():
 
 		if user_cmd == CMD_HELP:
 			print(	'\t%s to show this help,\n'
-				  	'\t%s to send a message,\n'
+				  	'\t%s <text> to send a message,\n'
 				  	'\t%s to connect to server\n'
 					'\t%s to get the users list\n'
+					'\t%s <group type> <member_1 id>....<member_n id> to create a private group (0=centr. and 1=decentr.)\n'
+					'\t%s <group id> to accept the invitation of this group\n'
+					'\t%s <group id> to reject the invitation of this group\n'
+					'\t%s to leave private group and join the public group again\n'
 					'\t%s to disconnect\n'
-				  % (CMD_HELP,CMD_SEND,CMD_CONNECT,CMD_USER_LIST, CMD_DISCONNECT))
+				  % (CMD_HELP,CMD_SEND,CMD_CONNECT,CMD_USER_LIST, CMD_CREATE_GROUP, CMD_ACCEPT_INVITATION, CMD_REJECT_INVITATION, CMD_DISJOINT, CMD_DISCONNECT))
 
 		elif user_cmd == CMD_PRINT:
 			print("ID: %s, group: %s, state: %s,\n"
@@ -131,6 +136,7 @@ def read_keyboard():
 				accept = m.groupInvitationAccept(0, sender_id, group_type,
 												 group_id, self_id)
 				UDPsocket.sendto(accept, address_server)
+				del group_invitations[group_id]
 
 			elif user_cmd == CMD_REJECT_INVITATION:
 				args, invalid_arg = getIntArgs(user_input)
@@ -163,6 +169,16 @@ def read_keyboard():
 				# create request
 				msg = m.groupCreationRequest(0, self_id, args[0], args[1:])
 				UDPsocket.sendto(msg, address_server)
+
+			elif user_cmd == CMD_DISJOINT:
+				if group_users[self_id]['group'] == 1:
+					print('You are already in the public group.')
+
+				else:
+					#send disjoint request
+					disjoint_request = m.groupDisjointRequest(0, self_id)
+					UDPsocket.sendto(disjoint_request, address_server)
+
 
 			else:
 				print("This is not a valid command. Type "
@@ -198,6 +214,9 @@ def main_loop():
 					self_id = 0
 					self_state = ST_DISCONNECTED
 					print('You have been disconnected.')
+				if msg_type == m.TYPE_GROUP_DISJOINT_REQUEST:
+					print('You left the private group.')
+
 
 			# treat non-acknowledgement messages
 			else:
@@ -274,14 +293,14 @@ def main_loop():
 					invitation['id']= group_id
 					invitation['creator']= source_id
 					# add invitation to invitations in stand-by
-					group_invitations[group_id] = invitation    #ATTENTION should be deleted for the ack of this message
+					group_invitations[group_id] = invitation
 
 					# warn user about invitation
 					group_type_label = ('public' if group_type is 0 else 'private')
 					print('User %s[%s] is inviting you to join a %s group\n'
 						  'Type "%s %s" to join group'
 						  % (group_users[source_id]['username'], source_id,
-							 group_type_label, CMD_ACCEPT_INVITATION, group_id))    # ATTENTION!! Rejection has to be added here (I was to dumb to do that string stuff)
+							 group_type_label, CMD_ACCEPT_INVITATION, group_id))    #TODO: Rejection has to be added here (I was to dumb to do that string stuff)
 
 
 
@@ -296,7 +315,8 @@ def main_loop():
 				elif msg_type == m.TYPE_GROUP_INVITATION_REJECT:
 					username = group_users[source_id]['username']
 					print('User ' + username + ' rejected your invitation.')
-
+					if header['R'] == 1:
+						print('We are sorry but nobody accepted your request.')
 					# send Acknowledgment
 					response = m.acknowledgement(msg_type, 0, self_id)
 					UDPsocket.sendto(response, address_server)
