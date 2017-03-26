@@ -30,6 +30,26 @@ self_id = 0
 self_group = 0
 self_state = ST_DISCONNECTED
 group_users = {}
+group_invitations = {}
+
+
+''' auxiliary functions '''
+
+
+def getIntArgs(s):
+	args = s.split(' ')[1:]
+	# removes spaces in the end
+	if '' in args:
+		args.remove('')
+
+	# cast arguments to integers
+	invalid_arg = False
+	try:
+		args = [int(arg) for arg in args]
+	except:
+		invalid_arg = True
+
+	return args, invalid_arg
 
 
 ''' thread functions '''
@@ -41,8 +61,7 @@ def read_keyboard():
 	print("Type messages to send: \t")
 	while 1:
 		user_input = input("")
-		space = user_input.find(' ')
-		user_cmd = (user_input[:space] if space is not -1 else user_input)
+		user_cmd = user_input.split(' ')[0]
 		print('command ' + user_cmd)
 
 		if user_cmd == CMD_HELP:
@@ -87,24 +106,31 @@ def read_keyboard():
 			elif user_cmd == CMD_USER_LIST:
 				pprint(group_users)
 
-			elif user_cmd == CMD_CREATE_GROUP:
-				args = user_input.split(' ')[1:]
-				# removes spaces in the end
-				if '' in args:
-					args.remove('')
+			elif user_input == CMD_ACCEPT_INVITATION:
+				args, invalid_arg = getIntArgs(user_input)
 
-				# cast arguments to integers
-				invalid_arg = False
-				try:
-					args = [int(arg) for arg in args]
-				except:
-					invalid_arg = True
+				print(args)
+				# verify if arguments are valid
+				if (len(args) < 1) or invalid_arg \
+						or (args[1] not in group_invitations):
+					print("Usage:\n> %s <group id>\n"
+						  "Where <group id> must be a valid id" % (user_input))
+					continue
+
+				# create acceptation message and send it
+				group_type = group_invitations[args[1]]
+				accept = m.groupInvitationAccept(0, self_id, group_type,
+												 args[1], self_id)
+				UDPsocket.sendto(accept, address_server)
+
+			elif user_cmd == CMD_CREATE_GROUP:
+				args, invalid_arg = getIntArgs(user_input)
 
 				# verify if arguments are valid
 				if (len(args) < 2) or (args[0] not in [0,1]) or invalid_arg:
 					print("Usage:\n> %s <group type> <member 1> <member 2> ... "
 						  "<member N>\nWhere <group type> must be 0 for "
-						  "centralized or 1 for decentralized\n" % (CMD_CREATE_GROUP))
+						  "centralized or 1 for decentralized\n" % (user_input))
 					continue
 
 				# create request
@@ -125,6 +151,7 @@ def main_loop():
 	global group_users
 	global self_id
 	global self_state
+	global group_invitations
 
 	while 1:
 		try:
@@ -139,10 +166,6 @@ def main_loop():
 			# treat acknowledgement messages according to types
 			if header['A']:
 				print('Received acknowledgement of type ' + str(msg_type))
-				if msg_type == m.TYPE_USER_LIST_RESPONSE:
-					pass
-				# code enter here when receiving a userListResponse acknowledgement
-				# elif ...
 				if msg_type == m.TYPE_DISCONNECTION_REQUEST:
 					#reset user data
 					group_users.clear()
@@ -224,6 +247,10 @@ def main_loop():
 				elif msg_type == m.TYPE_GROUP_INVITATION_REQUEST:
 					group_type, group_id, member_id = m.unpack_group_invitation_request(data)
 
+					# add invitation to invitations in stand-by
+					group_invitations[group_id] = group_type
+
+					# warn user about invitation
 					group_type_label = ('public' if group_type is 0 else 'private')
 					print('User %s[%s] is inviting you to join a %s group\n'
 						  'Type "%s %s" to join group'
@@ -233,7 +260,7 @@ def main_loop():
 		except Exception as exc:
 			# hide errors if disconnected
 			if self_state is not ST_DISCONNECTED:
-				print(exc)
+				print(exc.__traceback__)
 			continue
 
 

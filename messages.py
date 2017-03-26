@@ -203,11 +203,7 @@ def groupInvitationRequest(S, sourceID, communicationType, groupID, clientID):
 #Similar structure to the invitation. The sender is now the person that has been invited. That means the source ID changed.
 # The last 3 inputs are the same as in the correspondig invitation.
 def groupInvitationAccept(S,sourceID, communicationType, groupID, clientID):
-	headerLength = 0x007
-	firstByte = generateFirstByte(TYPE_GROUP_INVITATION_ACCEPT, 0, S, 0)
-	buf = ctypes.create_string_buffer(headerLength)
-	struct.pack_into('>BBBHBBB', buf, 0, firstByte, sourceID, 0, headerLength, communicationType, groupID, clientID)
-	return buf
+	return groupInvitationRequest(S, sourceID, communicationType, groupID, clientID)
 
 
 #The structure is the same as for the invitation accept just with a different type declaration.
@@ -277,7 +273,7 @@ def createUpdateList(S, updated_users):
 # The server sends this message to all users using a broadcast group ID if another user left the channel.
 # Since this message is sent by the server to all users
 # The source ID is 0 and the group ID is 0xFFF which means that the broadcast address is used.
-def updateDissconnction(S, clientID):
+def updateDisconnection(S, clientID):
 	headerLength = 0x006
 	firstByte = generateFirstByte(TYPE_UPDATE_DISCONNECTION, 0, S, 0)
 	buf = ctypes.create_string_buffer(headerLength)
@@ -362,6 +358,11 @@ def unpack_user_list_response_content(msg):
 def unpack_group_invitation_request(msg):
 	group_type, group_id, member_id = struct.unpack_from(">BBB", msg, 5)
 	return group_type, group_id, member_id
+
+
+# unpack group invitation accept message
+def unpack_group_invitation_accept(msg):
+	return unpack_group_invitation_request(msg)
 
 
 #unpack error code of connection reject

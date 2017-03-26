@@ -10,18 +10,24 @@ try:
 except:
 	pprint = print
 
-clients = {}
-next_client_id = 1
-next_group_id = 1
-UDPSock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-server_address = ('localhost', 1212)
-messages_queue = queue.Queue()
 
 # constants
 ST_CONNECTING = 0
 ST_CONNECTED = 1
+PUBLIC_GROUP_ID = 1
+TYPE_PUBLIC = 0
+TYPE_PRIVATE = 1
 
-PUBLIC_GROUP = 1
+
+clients = {}
+groups = {PUBLIC_GROUP_ID: {'creator': 'PUBLIC GROUP', 'id': PUBLIC_GROUP_ID, 'type': TYPE_PUBLIC, 'members': []}}
+group_invitations = {}
+next_client_id = 1
+next_group_id = 2
+UDPSock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+server_address = ('localhost', 1212)
+messages_queue = queue.Queue()
+
 
 #checks if username is already in the list. returns True if username is ok and fals if there is already somebody using it
 def check_username(username):
@@ -38,18 +44,24 @@ def connect_client(addr, username):
 	client_id = next_client_id
 	next_client_id += 1
 
-	client = {'id': client_id, 'addr': addr, 'username': username, 'state': ST_CONNECTING, 'group': PUBLIC_GROUP}
+	client = {'id': client_id, 'addr': addr, 'username': username, 'state': ST_CONNECTING, 'group': PUBLIC_GROUP_ID}
 	clients[client_id] = client
+
+	# add new client to public group
+	groups[PUBLIC_GROUP_ID]['members'].append(client)
+	pprint(groups)
 
 	print('Connected to a new client: \t', client)
 	return client
 
 
 # receive a coded message and send it to receivers list
-def send_message(msg, receivers):
-	for id, client in receivers.items():
+def send_message(msg, group_id):
+	global groups
+	receivers = groups[group_id]['members']
+	for client in receivers:
 		UDPSock.sendto(msg, client['addr'])
-		print("Sent msg to client " + str(id))
+		print("Sent msg to client " + str(client['id']))
 
 
 # function to update the list of all users if somebody joined or changed status.
@@ -76,8 +88,6 @@ def receive_data():
 
 def send_data():
 	while 1:
-		global next_group_id
-
 		# try to get a message from the queue
 		# if there's no message, try again without blocking
 		try:
@@ -90,6 +100,11 @@ def send_data():
 		header = m.unpack_header(data)
 		msg_type = header['type']
 		source_id = header['sourceID']
+		group_id = header['groupID']
+
+		global next_group_id
+		global groups
+		global clients
 
 		# treat acknowledgement messages according to types
 		if header['A']:
@@ -103,10 +118,7 @@ def send_data():
 				updated_user = {source_id: client}
 				update_user_list(updated_user)
 			elif msg_type == m.TYPE_USER_LIST_RESPONSE:
-				# code enter here when receiving a userListResponse acknowledgement
 				pass
-			# elif ...
-
 		# treat non-acknowledgement messages
 		else:
 			if msg_type == m.TYPE_CONNECTION_REQUEST:
@@ -134,17 +146,12 @@ def send_data():
 				# get message text
 				# should send ack
 				content = header['content']
-				text = content[2:]
-				print("%s >> %s" % (header['sourceID'], text.decode()))
-				groupID = header['groupID']
+				text = content[2:].decode()
+				username = clients[source_id]['username']
+				print("%s [%s]: %s" % (username, str(source_id), text))
 
 				# resend it to users in same group
-				receivers = {}
-
-				for id,client in clients.items():
-					if client['group'] == groupID:
-						receivers[id] = clients[id]
-				send_message(data, receivers)
+				send_message(data, group_id)
 
 			elif msg_type == m.TYPE_USER_LIST_REQUEST:
 				# send user list
@@ -152,13 +159,45 @@ def send_data():
 				print('send user list to client ' + str(source_id))
 				UDPSock.sendto(response, clients[source_id]['addr'])
 
+			elif msg_type == m.TYPE_GROUP_INVITATION_ACCEPT:
+				group_type, group_id, member_id = \
+					m.unpack_group_invitation_accept(data)
+
+				# if group doesn't exist, create it and add creator to it
+				if group_id not in groups:
+					# remove group from stanby dict and put it on active groups dict
+					groups[group_id] = group_invitations.pop(group_id) # TODO: check this line
+					# change creator to new group and send an acceptation to him
+					creator_id = groups[group_id]['creator']
+					clients[creator_id]['group'] = group_id
+					msg = m.groupCreationAccept(0, creator_id,
+												groups[group_id]['type'],
+												group_id)
+					UDPSock.sendto(msg, clients[creator_id]['addr'])
+
+				# add source client to group
+				clients[source_id]['group'] = group_id
+
+				# update all users in group
+				member_list = groups[group_id]['members']
+				msg = m.createUserListResponse(0, creator_id,
+											   member_list)
+				send_message(msg, group_id)
+
 			elif msg_type == m.TYPE_DISCONNECTION_REQUEST:
-				del clients[source_id]
+				#del clients[source_id] 	# del operator doesn't delete object xD
+				# remove client from group and client lists
+				group_id = clients[source_id]['group']
+				groups[group_id]['members'].remove(client)
+				clients.remove(source_id)
+
+				# send acknowledgement
 				response = m.acknowledgement(msg_type, 0, source_id)
 				UDPSock.sendto(response, clients[source_id]['addr'])
+
 				# tell other clients that user disconnected
-				update_disconnection = m.updateDissconnction(0, source_id)
-				send_message(update_disconnection, clients)
+				update_disconnection = m.updateDisconnection(0, source_id)
+				send_message(update_disconnection, group_id)
 
 			elif msg_type == m.TYPE_GROUP_CREATION_REQUEST:
 				group_type, members = m.unpack_group_creation_request(data)
@@ -168,9 +207,17 @@ def send_data():
 				ack = m.acknowledgement(m.TYPE_GROUP_CREATION_REQUEST, 0, source_id)
 				UDPSock.sendto(ack,clients[source_id]['addr'])
 
+				# get an ID to new group
 				group_id = next_group_id
 				next_group_id += 1
 
+				# add group to stand-by invitations dict
+				group_invitations[group_id] = {'creator': source_id,
+											   'id': group_id,
+											   'type': group_type,
+											   'members': []}
+
+				# invite members to group
 				for id in members:
 					invitation = m.groupInvitationRequest(0, source_id,
 														  group_type, group_id,
