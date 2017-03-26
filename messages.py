@@ -57,8 +57,8 @@ def createConnectionRequest(S, username):
 	groupId = 0
 	firstByte = generateFirstByte(TYPE_CONNECTION_REQUEST,0,S,0)
 	buf = ctypes.create_string_buffer(headerLength)
-	packed_username = bytes(usernameWithPadding(username), 'utf8')															#solved string packing problem
-	struct.pack_into('>BBBH8s', buf, 0, firstByte, sourceID, groupId, headerLength, packed_username) #ATTENTION!! disabeled filling function for the string to test!
+	packed_username = bytes(usernameWithPadding(username), 'utf8')
+	struct.pack_into('>BBBH8s', buf, 0, firstByte, sourceID, groupId, headerLength, packed_username)
 	return buf
 
 
@@ -193,7 +193,7 @@ def groupCreationReject(S, sourceID):
 # The inputs group ID and Client ID are in the optional part of the header.
 # They are specifieng the group ID that will be used for the members that join the group an the member that has been invited.
 def groupInvitationRequest(S, sourceID, communicationType, groupID, clientID):
-	headerLength = 0x008 	# TODO: check this because spec says 0x007 but it can't be right ---> yep script is lying
+	headerLength = 0x008
 	firstByte = generateFirstByte(TYPE_GROUP_INVITATION_REQUEST, 0, S, 0)
 	buf = ctypes.create_string_buffer(headerLength)
 	struct.pack_into('>BBBHBBB', buf, 0, firstByte, sourceID, 0, headerLength, communicationType, groupID, clientID)
@@ -203,7 +203,7 @@ def groupInvitationRequest(S, sourceID, communicationType, groupID, clientID):
 #Similar structure to the invitation. The sender is now the person that has been invited. That means the source ID changed.
 # The last 3 inputs are the same as in the correspondig invitation.
 def groupInvitationAccept(S,sourceID, communicationType, groupID, clientID):
-	headerLength = 0x008 	# TODO: check this because spec says 0x007 but it can't be right  ---> yep script is lying
+	headerLength = 0x008
 	firstByte = generateFirstByte(TYPE_GROUP_INVITATION_ACCEPT, 0, S, 0)
 	buf = ctypes.create_string_buffer(headerLength)
 	struct.pack_into('>BBBHBBB', buf, 0, firstByte, sourceID, 0, headerLength, communicationType, groupID, clientID)
