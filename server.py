@@ -30,7 +30,10 @@ server_address = ('localhost', 1212)
 messages_queue = queue.Queue()
 
 
-#checks if username is already in the list. returns True if username is ok and fals if there is already somebody using it
+
+
+
+#checks if username is already in the list. returns True if username is ok and false if there is already somebody using it
 def check_username(username):
 	for id, client in clients.items():
 		if client['username'] == username:
@@ -73,10 +76,13 @@ def update_user_list(updated_users):
 		print('Sent UPDATE_LIST to user ' + str(id))
 	return
 
-
+#This function changes the group of a user.
+#It takes care that a group dissolution will be initiated if only one user is left (except of course for the public group)
 def change_group(user_id, new_group_id):
+	#change groups on the server
 	user = clients[user_id]
 	old_group_id = user['group']
+	changed_users = {}
 
 	new_group = groups[new_group_id]
 	old_group = groups[old_group_id]
@@ -85,6 +91,22 @@ def change_group(user_id, new_group_id):
 	new_group['members'].append(user)
 
 	user['group'] = new_group['id']
+
+	#If only one user remains delete group and send a group dissolution, pack that guy in the public group an inform everybody about the changes.
+	if len(old_group['members']) == 1 and old_group_id != PUBLIC_GROUP_ID:
+		msg = m.groupDissolution(0, old_group_id)
+		user_left = old_group['members'][0]
+		UDPSock.sendto(msg, user_left['addr'])
+		del groups[old_group_id]
+		groups[PUBLIC_GROUP_ID]['members'].append(user_left)
+		user_left['group']=PUBLIC_GROUP_ID
+		user['group'] = new_group['id']
+		changed_users[str(user_left['id'])] = user_left
+		changed_users[str(user['id'])] = user
+		update_user_list(changed_users)
+	else:
+		changed_users[str(user['id'])] = user
+		update_user_list(changed_users)
 
 
 ''' thread functions '''
@@ -172,7 +194,7 @@ def send_data():
 				print(str(source_id) + ': USER_LIST_REQUEST')
 				# send user list
 				group_id = clients[source_id]['group']
-				# TODO: it's always sending clients list
+				# TODO: it's always sending clients list --> don't see the problem. This message is only sended once, when somebody connects, so he needs the list.
 				response = m.createUserListResponse(0, source_id, clients)
 				print('send USER_LIST_REQUEST to client ' + str(source_id))
 				UDPSock.sendto(response, clients[source_id]['addr'])
@@ -186,7 +208,7 @@ def send_data():
 
 				# if group doesn't exist, create it and add creator to it
 				if group_id not in groups:
-					# remove group from stanby dict and put it on active groups dict
+					# remove group from standby dict and put it on active groups dict
 					groups[group_id] = group_invitations.pop(group_id)
 
 					# change creator to new group
@@ -200,33 +222,41 @@ def send_data():
 												group_id)
 					UDPSock.sendto(msg, clients[creator_id]['addr'])
 
-				# TODO: this only works to groups with 2 persons
+				# TODO: this only works to groups with 2 persons --> don't understand the problem :/
 
 				# add source client to group
 				change_group(source_id, group_id)
-				updated_users[source_id] = clients[source_id]
+				#updated_users[source_id] = clients[source_id]
 
-				# update all users in group
-				msg = m.createUpdateList(0, updated_users)
-				send_message(msg, group_id)
+				# update all users in group --> changed that. I think he has to update all of the users.
+				#update_user_list(updated_users) --> should be now included in the change_group function
+
+				#msg = m.createUpdateList(0, updated_users)
+				#send_message(msg, group_id)
 
 				# TODO: warn users from old groups that both users left
 
+				# will change user to public group to use the functionalities of the cahnge_group function and delete him after that.
 			elif msg_type == m.TYPE_DISCONNECTION_REQUEST:
 				print(str(source_id) + ': DISCONNECTION_REQUEST')
-				#del clients[source_id] 	# del operator doesn't delete object xD
-				# remove client from group and client lists
-				group_id = clients[source_id]['group']
-				groups[group_id]['members'].remove(client)
-				clients.remove(source_id)
+
+				#changeS group to public group. Necessary because the function change_group takes care that there is more than one user in a group.
+				client = clients[source_id]
+				change_group(source_id, PUBLIC_GROUP_ID)
 
 				# send acknowledgement
 				response = m.acknowledgement(msg_type, 0, source_id)
-				UDPSock.sendto(response, clients[source_id]['addr'])
+				UDPSock.sendto(response, addr)
 
-				# tell other clients that user disconnected
+				# tell other clients that user disconnected (all clients, not only in a group)
 				update_disconnection = m.updateDisconnection(0, source_id)
-				send_message(update_disconnection, group_id)
+				for id, client in clients.items():
+					UDPSock.sendto(update_disconnection, client['addr'])
+					print('Sent UPDATE_DISCONNECTION to user ' + str(id))
+
+				# remove client from group and client lists (the del function works well for me, maybe there was a different problem)
+				groups[PUBLIC_GROUP_ID]['members'].remove(client)
+				del clients[source_id]
 
 			elif msg_type == m.TYPE_GROUP_CREATION_REQUEST:
 				print(str(source_id) + ': GROUP_CREATION_REQUEST')

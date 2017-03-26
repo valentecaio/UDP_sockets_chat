@@ -193,7 +193,7 @@ def groupCreationReject(S, sourceID):
 # The inputs group ID and Client ID are in the optional part of the header.
 # They are specifieng the group ID that will be used for the members that join the group an the member that has been invited.
 def groupInvitationRequest(S, sourceID, communicationType, groupID, clientID):
-	headerLength = 0x008 	# TODO: check this because spec says 0x007 but it can't be right
+	headerLength = 0x008 	# TODO: check this because spec says 0x007 but it can't be right ---> yep script is lying
 	firstByte = generateFirstByte(TYPE_GROUP_INVITATION_REQUEST, 0, S, 0)
 	buf = ctypes.create_string_buffer(headerLength)
 	struct.pack_into('>BBBHBBB', buf, 0, firstByte, sourceID, 0, headerLength, communicationType, groupID, clientID)
@@ -203,7 +203,7 @@ def groupInvitationRequest(S, sourceID, communicationType, groupID, clientID):
 #Similar structure to the invitation. The sender is now the person that has been invited. That means the source ID changed.
 # The last 3 inputs are the same as in the correspondig invitation.
 def groupInvitationAccept(S,sourceID, communicationType, groupID, clientID):
-	headerLength = 0x008 	# TODO: check this because spec says 0x007 but it can't be right
+	headerLength = 0x008 	# TODO: check this because spec says 0x007 but it can't be right  ---> yep script is lying
 	firstByte = generateFirstByte(TYPE_GROUP_INVITATION_ACCEPT, 0, S, 0)
 	buf = ctypes.create_string_buffer(headerLength)
 	struct.pack_into('>BBBHBBB', buf, 0, firstByte, sourceID, 0, headerLength, communicationType, groupID, clientID)
@@ -392,7 +392,6 @@ def unpack_group_creation_request(msg):
 		memberID = struct.unpack_from(">B", msg, offset)[0]
 		user_list.append(memberID)
 		offset += 1
-
 	print(str(group_type))
 	return group_type, user_list
 

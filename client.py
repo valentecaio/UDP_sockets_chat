@@ -175,6 +175,7 @@ def main_loop():
 					#reset user data
 					group_users.clear()
 					self_id = 0
+					self_state = ST_DISCONNECTED
 					print('You have been disconnected.')
 
 			# treat non-acknowledgement messages
@@ -229,7 +230,7 @@ def main_loop():
 				elif msg_type == m.TYPE_UPDATE_DISCONNECTION:
 					self_id = m.unpack_connection_accept_content(data)
 
-					username = group_users[header['clientID']]['username']
+					username = group_users[self_id]['username']
 					del group_users[self_id]
 
 					#send Acknowledgment
@@ -257,6 +258,13 @@ def main_loop():
 						  'Type "%s %s" to join group'
 						  % (group_users[source_id]['username'], source_id,
 							 group_type_label, CMD_ACCEPT_INVITATION, group_id))
+
+				elif msg_type == m.TYPE_GROUP_DISSOLUTION:
+					print('Your group has been deleted because you were the only member left. you are now in the public group again.')
+
+					# send Acknowledgment
+					response = m.acknowledgement(msg_type, 0, self_id)
+					UDPsocket.sendto(response, address_server)
 
 		except Exception as exc:
 			# hide errors if disconnected
