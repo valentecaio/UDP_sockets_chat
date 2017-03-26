@@ -22,17 +22,17 @@ ST_CONNECTED = 1
 
 PUBLIC_GROUP = 1
 
+#checks if username is already in the list. returns True if username is ok and fals if there is already somebody using it
+def check_username(username):
+	for id, client in clients.items():
+		if client['username'] == username:
+			return False
+	return True
+
 
 # add client to clients list
-# TODO: usernameAlreadyExists
-#I think invalid username has to be treated in the client part because after we added the spaces we don't know if the client had spaces in hie username which wouldn't be allowed.
 def connect_client(addr, username):
-	# avoid adding clients already added
-	'''
-	for client in clients:
-		if client['addr'] == addr: 	# can't compair using 'is'
-			return
-	'''
+
 	# add client to clients dict
 	global next_id
 	client_id = next_id
@@ -52,10 +52,11 @@ def send_message(msg, receivers):
 		print("Sent msg to client " + str(id))
 
 
-# function to update the list of all users if somebody joined or left
-def update_user_list():
+# function to update the list of all users if somebody joined or changed status.
+# Input is a dictionary of the users that changed
+def update_user_list(updated_users):
 	for id, client in clients.items():
-		msg = m.createUserListResponse(0, client['id'], clients)
+		msg = m.createUpdateList(0, updated_users)
 		UDPSock.sendto(msg, client['addr'])
 	return
 
@@ -95,6 +96,9 @@ def send_data():
 				# change client state to connected
 				client = clients[ str(unpacked_data['sourceID']) ]
 				client['state'] = ST_CONNECTED
+				# update list of other users
+				updated_user = {str(unpacked_data['sourceID']): client}
+				update_user_list(updated_user)
 			elif msg_type == m.TYPE_USER_LIST_RESPONSE:
 				# code enter here when receiving a userListResponse acknowledgement
 				pass
@@ -105,16 +109,26 @@ def send_data():
 			if msg_type == m.TYPE_CONNECTION_REQUEST:
 				# get username from message content
 				username = unpacked_data['content'].decode().strip()
-
-				# add client to clients list
-				client = connect_client(addr, username)
-
-				# send ConnectionAccept as response
-				response = m.createConnectionAccept(0, client['id'])
-				UDPSock.sendto(response, client['addr'])
+				#checks username and responses according to that check (allows or denies connection)
+				if check_username(username) == True:
+					if len(clients) < 250:
+						# add client to clients list
+						client = connect_client(addr, username)
+						# send ConnectionAccept as response
+						response = m.createConnectionAccept(0, client['id'])
+						UDPSock.sendto(response, client['addr'])
+					else:
+						#send error code 0 for maximum of members on the server
+						response = m.createConnectionReject(0,0)
+						UDPSock.sendto(response, addr)
+				else:
+					#send error code 1 for username already taken
+					response = m.createConnectionReject(0,1)
+					UDPSock.sendto(response, addr)
 
 			elif msg_type == m.TYPE_DATA_MESSAGE:
 				# get message text
+				# should send ack
 				content = unpacked_data['content']
 				text = content[2:]
 				print("%s >> %s" % (unpacked_data['sourceID'], text.decode()))
@@ -134,6 +148,15 @@ def send_data():
 				response = m.createUserListResponse(0, client['id'], clients)
 				print('send user list')
 				UDPSock.sendto(response, client['addr'])
+
+			elif msg_type == m.TYPE_DISCONNECTION_REQUEST:
+				client = clients[str(unpacked_data['sourceID'])]
+				del clients[str(unpacked_data['sourceID'])]
+				response = m.acknowledgement(msg_type, 0, client['id'])
+				UDPSock.sendto(response, client['addr'])
+				#tell other clients that user disconnected
+				update_disconnection = m.updateDissconnction(0, unpacked_data['sourceID'])
+				send_message(update_disconnection, clients)
 
 
 def run_threads():

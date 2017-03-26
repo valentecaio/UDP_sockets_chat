@@ -15,6 +15,7 @@ CMD_CONNECT = 'CONNECT'
 CMD_SEND = 'SEND'
 CMD_USER_LIST = 'USERS'
 CMD_HELP = 'HELP'
+CMD_DISCONNECT = 'DISCONNECT'
 
 ''' user states '''
 ST_DISCONNECTED = 0
@@ -25,8 +26,9 @@ address_server = ('localhost', 1212)
 UDPsocket = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
 client_id = 0
 client_group = 0
-client_state = ST_DISCONNECTED
 user_list = {}
+client_state = ST_DISCONNECTED
+
 
 ''' thread functions '''
 
@@ -55,6 +57,10 @@ def read_keyboard():
 			msg = m.createDataMessage(0, client_id, client_group, text)
 			UDPsocket.sendto(msg, address_server)
 
+		elif user_cmd == CMD_DISCONNECT:
+			msg = m.disconnectionRequest(0, client_id)
+			UDPsocket.sendto(msg, address_server)
+
 		elif user_cmd == CMD_USER_LIST:
 			'''
 			for keys, value in user_list.items():
@@ -65,11 +71,13 @@ def read_keyboard():
 			pprint(user_list)
 
 		elif user_cmd == CMD_HELP:
-			print('\t%s to show this help,\n'
-				  '\t%s to send a message,\n'
-				  '\t%s to connect to server\n'
-				  '\t%s to get the users list\n'
-				  % (CMD_HELP,CMD_SEND,CMD_CONNECT,CMD_USER_LIST))
+			print(	'\t%s to show this help,\n'
+				  	'\t%s to send a message,\n'
+				  	'\t%s to connect to server\n'
+					'\t%s to get the users list\n'
+					'\t%s to disconnect\n'
+
+				  % (CMD_HELP,CMD_SEND,CMD_CONNECT,CMD_USER_LIST, CMD_DISCONNECT))
 
 		else:
 			print("This is not a valid command. Type "
@@ -100,7 +108,12 @@ def main_loop():
 					pass
 				# code enter here when receiving a userListResponse acknowledgement
 				# elif ...
-
+				if msg_type == m.TYPE_DISCONNECTION_REQUEST:
+					#reset user data
+					user_list.clear()
+					client_group = 0
+					client_id = 0
+					print('You have been disconnected.')
 			# treat non-acknowledgement messages
 			else:
 				if msg_type == m.TYPE_CONNECTION_ACCEPT:
@@ -123,7 +136,7 @@ def main_loop():
 					response = m.createUserListRequest(0, client_id)
 					UDPsocket.sendto(response, address_server)
 
-				if msg_type == m.TYPE_DATA_MESSAGE:
+				elif msg_type == m.TYPE_DATA_MESSAGE:
 					content = unpacked_data['content']
 					text = content[2:].decode()
 					id = unpacked_data['sourceID']
@@ -131,7 +144,7 @@ def main_loop():
 					username = source['username']
 					print("%s [%s]: %s" % (username, str(id), text))
 
-				if msg_type == m.TYPE_USER_LIST_RESPONSE:
+				elif msg_type == m.TYPE_USER_LIST_RESPONSE:
 					user_list = m.unpack_user_list_response(data)
 
 					print('received user list response')
@@ -140,6 +153,37 @@ def main_loop():
 					# send Acknowledgment as response
 					response = m.acknowledgement(msg_type, 0, client_id)
 					UDPsocket.sendto(response, address_server)
+
+				elif msg_type == m.TYPE_UPDATE_LIST:
+					changed_users = m.unpack_user_list_response(data)
+					user_list.update(changed_users)
+					for id, client in changed_users.items():
+						if id not in user_list:
+							user_list[id] = client
+
+					# send Acknowledgment as response
+					response = m.acknowledgement(msg_type, 0, client_id)
+					UDPsocket.sendto(response, address_server)
+					print('Changes in the user list. Type "USERS" to see changes')
+
+				elif msg_type == m.TYPE_UPDATE_DISCONNECTION:
+					unpacked_data = m.unpack_connection_accept(data)
+					client_id = int(unpacked_data['clientID'])
+					username = user_list[str(unpacked_data['clientID'])]['username']
+					del user_list[str(client_id)]
+
+					#send Acknowledgment
+					response = m.acknowledgement(msg_type, 0, client_id)
+					UDPsocket.sendto(response, address_server)
+
+					print(username + '  disconnected.')
+
+				# checks error code. not the best way but works for the two existing codes 0 and 1
+				elif msg_type == m.TYPE_CONNECTION_REJECT:
+					if m.unpack_error_type(data) == m.TYPE_CONNECTION_REQUEST:
+						print("We are sorry. But the server has exceeded it's maximum number of users")
+					else:
+						print('This username is already taken. Please choose another one.')
 
 		except Exception as exc:
 			# hide errors if disconnected
