@@ -87,14 +87,27 @@ def read_keyboard():
 				pprint(user_list)
 
 			elif user_cmd == CMD_CREATE_GROUP:
-				args = user_input.split(' ')
-				args.remove('')		# removes spaces in the end
-				if len(args) < 4 or args[1] not in [0,1]:
+				args = user_input.split(' ')[1:]
+				# removes spaces in the end
+				if '' in args:
+					args.remove('')
+
+				# cast arguments to integers
+				invalid_arg = False
+				try:
+					args = [int(arg) for arg in args]
+				except:
+					invalid_arg = True
+
+				# verify if arguments are valid
+				if (len(args) < 3) or (args[0] not in [0,1]) or invalid_arg:
 					print("Usage:\n> %s <group type> <member 1> <member 2> ... "
 						  "<member N>\nWhere <group type> must be 0 for "
-						  "centralized or 1 for decentralized\n"
-						  "At least two members must be invited", (CMD_CREATE_GROUP))
-				msg = m.groupCreationRequest(0,client_id,args[1],args[1:])
+						  "centralized or 1 for decentralized\n" % (CMD_CREATE_GROUP))
+					continue
+
+				# create request
+				msg = m.groupCreationRequest(0,client_id,args[0],args[1:])
 				UDPsocket.sendto(msg, address_server)
 
 			else:

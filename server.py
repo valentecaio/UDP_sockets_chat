@@ -159,7 +159,11 @@ def send_data():
 				send_message(update_disconnection, clients)
 
 			elif msg_type == m.TYPE_GROUP_CREATION_REQUEST:
-				client = clients[str(unpacked_data['sourceID'])]
+				client_id = (unpacked_data['sourceID'])
+				group_type, members = m.unpack_group_creation_request(data)
+				print("User %s is inviting members %s to a group of type %s"
+					  % (client_id, members, group_type))
+
 
 
 def run_threads():

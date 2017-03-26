@@ -163,7 +163,7 @@ def groupCreationRequest(S, sourceID, communicationType, memberList):
 	struct.pack_into('>BBBHB', buf, 0, firstByte, sourceID, groupId, headerLength, communicationType)
 
 	for i in range(len(memberList)):
-		offset = (5+i)*8
+		offset = (6+i)
 		struct.pack_into('>B', buf, offset, memberList[i])
 	return buf
 
@@ -192,7 +192,7 @@ def groupCreationReject(S, sourceID):
 # The input source ID specifies the member that sent the invitation.
 # The inputs group ID and Client ID are in the optional part of the header.
 # They are specifieng the group ID that will be used for the members that join the group an the member that has been invited.
-def groupInvitationRequest(S, sourceID, communicationType, groupID,clientID):
+def groupInvitationRequest(S, sourceID, communicationType, groupID, clientID):
 	headerLength = 0x007
 	firstByte = generateFirstByte(TYPE_GROUP_INVITATION_REQUEST, 0, S, 0)
 	buf = ctypes.create_string_buffer(headerLength)
@@ -285,7 +285,8 @@ def updateDissconnction(S, clientID):
 	return buf
 
 
-# Dissconnection request of a user. The source ID specifies the user that wants to deconnect.
+# Dissconnection request of a user.
+# The source ID specifies the user that wants to deconnect.
 def disconnectionRequest(S, sourceID):
 	headerLength = 0x005
 	firstByte = generateFirstByte(TYPE_DISCONNECTION_REQUEST, 0, S, 0)
@@ -310,7 +311,8 @@ def acknowledgement(type, S, sourceID):
 # throws an error if trying to unpack messages without header
 # This functions is called to identify a message. Some messages might require a special unpacking function after that
 def unpack_protocol_header(msg):
-	firstByte, sourceID, groupID, lenght, content = struct.unpack_from(">BBBH" + str(len(msg) - 5) + "s",  msg, 0) #if there is somethhing else then string in the "content" it seems not to work.
+	firstByte, sourceID, groupID, lenght, content \
+		= struct.unpack_from(">BBBH" + str(len(msg) - 5) + "s",  msg, 0)
 	type = firstByte >> 3
 	R = firstByte >> 2 & 1
 	S = firstByte >> 1 & 1
@@ -332,7 +334,8 @@ def unpack_connection_accept(msg):
 
 
 def unpack_data_message(msg):
-	firstByte, sourceID, groupID, lenght, data_length, content = struct.unpack_from(">BBBHH" + str(len(msg) - 7) + "s", msg, 0)  # if there is something else then string in the "content" it seems not to work.
+	firstByte, sourceID, groupID, lenght, data_length, content\
+		= struct.unpack_from(">BBBHH" + str(len(msg) - 7) + "s", msg, 0)
 	type = firstByte >> 3
 	R = firstByte >> 2 & 1
 	S = firstByte >> 1 & 1
@@ -359,6 +362,7 @@ def unpack_user_list_response(msg):
 		offset += 16
 	return user_list
 
+
 #unpack error code of connection reject
 def unpack_error_type(msg):
 	firstByte, sourceID, groupID, lenght, error_code = struct.unpack_from(">BBBHB", msg, 0)
@@ -367,7 +371,24 @@ def unpack_error_type(msg):
 	S = firstByte >> 1 & 1
 	A = firstByte & 1
 	return error_code
-#unpack changed users in a dictionary
+
+
+# unpack group creation request
+# returns the group type and the list of members IDs who may be invited
+def unpack_group_creation_request(msg):
+	user_list = []
+
+	group_type = struct.unpack_from(">B", msg, 5)[0]
+
+	offset = 6
+	while offset < len(msg):
+		memberID = struct.unpack_from(">B", msg, offset)[0]
+		user_list.append(memberID)
+		offset += 1
+
+	print(str(group_type))
+	return group_type, user_list
+
 
 if __name__ == '__main__':
 		pass
