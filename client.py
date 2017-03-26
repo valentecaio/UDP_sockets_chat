@@ -17,6 +17,7 @@ CMD_USER_LIST = 'USERS'
 CMD_HELP = 'HELP'
 CMD_DISCONNECT = 'DISCONNECT'
 CMD_CREATE_GROUP = 'GCREATE'
+CMD_ACCEPT_INVITATION = 'ACCEPT'
 
 ''' user states '''
 ST_DISCONNECTED = 0
@@ -100,7 +101,7 @@ def read_keyboard():
 					invalid_arg = True
 
 				# verify if arguments are valid
-				if (len(args) < 3) or (args[0] not in [0,1]) or invalid_arg:
+				if (len(args) < 2) or (args[0] not in [0,1]) or invalid_arg:
 					print("Usage:\n> %s <group type> <member 1> <member 2> ... "
 						  "<member N>\nWhere <group type> must be 0 for "
 						  "centralized or 1 for decentralized\n" % (CMD_CREATE_GROUP))
@@ -112,7 +113,7 @@ def read_keyboard():
 
 			else:
 				print("This is not a valid command. Type "
-					  + CMD_HELP + "to get some help.")
+					  + CMD_HELP + " to get some help.")
 				continue
 
 		#UDPsocket.sendto(msg, address_server)
@@ -132,9 +133,12 @@ def main_loop():
 			# unpack header
 			unpacked_data = m.unpack_protocol_header(data)
 			msg_type = unpacked_data['type']
+			source_id = unpacked_data['sourceID']
+			#pprint(unpacked_data)
 
 			# treat acknowledgement messages according to types
 			if unpacked_data['A']:
+				print('Received acknowledgement of type ' + str(msg_type))
 				if msg_type == m.TYPE_USER_LIST_RESPONSE:
 					pass
 				# code enter here when receiving a userListResponse acknowledgement
@@ -171,10 +175,9 @@ def main_loop():
 				elif msg_type == m.TYPE_DATA_MESSAGE:
 					content = unpacked_data['content']
 					text = content[2:].decode()
-					id = unpacked_data['sourceID']
-					source = user_list[id]
+					source = user_list[source_id]
 					username = source['username']
-					print("%s [%s]: %s" % (username, str(id), text))
+					print("%s [%s]: %s" % (username, str(source_id), text))
 
 				elif msg_type == m.TYPE_USER_LIST_RESPONSE:
 					user_list = m.unpack_user_list_response(data)
@@ -202,6 +205,7 @@ def main_loop():
 
 				elif msg_type == m.TYPE_UPDATE_DISCONNECTION:
 					unpacked_data = m.unpack_connection_accept(data)
+
 					client_id = int(unpacked_data['clientID'])
 					username = user_list[str(unpacked_data['clientID'])]['username']
 					del user_list[str(client_id)]
@@ -214,10 +218,19 @@ def main_loop():
 
 				# checks error code. not the best way but works for the two existing codes 0 and 1
 				elif msg_type == m.TYPE_CONNECTION_REJECT:
-					if m.unpack_error_type(data) == m.TYPE_CONNECTION_REQUEST:
+					if m.unpack_error_type(data) == 0:
 						print("We are sorry. But the server has exceeded it's maximum number of users")
 					else:
 						print('This username is already taken. Please choose another one.')
+
+				elif msg_type == m.TYPE_GROUP_INVITATION_REQUEST:
+					group_type, group_id, member_id = m.unpack_group_invitation_request(data)
+
+					group_type_label = ('public' if group_type is 0 else 'private')
+					print('User %s[%s] is inviting you to join a %s group\n'
+						  'Type "%s %s" to join group'
+						  % (user_list[source_id]['username'], source_id,
+							 group_type_label, CMD_ACCEPT_INVITATION, group_id))
 
 		except Exception as exc:
 			# hide errors if disconnected

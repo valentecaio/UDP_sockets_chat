@@ -193,7 +193,7 @@ def groupCreationReject(S, sourceID):
 # The inputs group ID and Client ID are in the optional part of the header.
 # They are specifieng the group ID that will be used for the members that join the group an the member that has been invited.
 def groupInvitationRequest(S, sourceID, communicationType, groupID, clientID):
-	headerLength = 0x007
+	headerLength = 0x008 	# TODO: check this because spec says 0x007 but it can't be right
 	firstByte = generateFirstByte(TYPE_GROUP_INVITATION_REQUEST, 0, S, 0)
 	buf = ctypes.create_string_buffer(headerLength)
 	struct.pack_into('>BBBHBBB', buf, 0, firstByte, sourceID, 0, headerLength, communicationType, groupID, clientID)
@@ -330,9 +330,8 @@ def unpack_connection_accept(msg):
 	return {'A': A, 'S': S, R: 'R', 'type': type, 'sourceID': sourceID,
 			'groupID': groupID, 'lenght': lenght, 'clientID': clientID}
 
+
 # unpack function for a data message if the length of the payload is needed
-
-
 def unpack_data_message(msg):
 	firstByte, sourceID, groupID, lenght, data_length, content\
 		= struct.unpack_from(">BBBHH" + str(len(msg) - 7) + "s", msg, 0)
@@ -362,6 +361,30 @@ def unpack_user_list_response(msg):
 		offset += 16
 	return user_list
 
+
+# unpack group invitation request message
+def unpack_group_invitation_request(msg):
+	group_type, group_id, member_id = struct.unpack_from(">BBB", msg, 5)
+	return group_type, group_id, member_id
+
+
+# unpack user list in a dictionary
+def unpack_user_list_response(msg):
+	user_list = {}
+
+	offset = 5
+	while offset < len(msg):
+		client_id, client_group, username, ip_int, port = struct.unpack_from(">BB8sLH", msg, offset)
+
+		ip = socket.inet_ntoa(struct.pack('>L',ip_int))
+		username = username.decode().strip()
+
+		user = {'client_id': client_id, 'client_group': client_group,
+				'username': username, 'ip':ip, 'port':port}
+		user_list[client_id] = user
+
+		offset += 16
+	return user_list
 
 #unpack error code of connection reject
 def unpack_error_type(msg):
