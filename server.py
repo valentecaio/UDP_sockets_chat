@@ -317,6 +317,14 @@ def send_data():
 				if len(group_invitations[group_id]['members']) == 1:
 					del group_invitations[group_id]
 
+			elif msg_type == m.TYPE_GROUP_DISJOINT_REQUEST:
+				change_group(source_id, PUBLIC_GROUP_ID)
+				print(str(source_id) + ': DISJOINT GROUP')
+
+				# send acknowledgement
+				response = m.acknowledgement(msg_type, 0, source_id)
+				UDPSock.sendto(response, addr)
+
 
 
 
