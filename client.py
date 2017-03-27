@@ -1,5 +1,6 @@
 # Echo client program
 import socket
+import queue
 import threading
 import traceback
 from time import sleep
@@ -36,6 +37,7 @@ self_group_type = m.GROUP_CENTRALIZED
 users = {}
 group_invitations = {}
 own_group_invitation = {}
+messages_queue = queue.Queue()
 
 
 ''' auxiliary functions '''
@@ -208,6 +210,16 @@ def read_keyboard():
 				print(traceback.format_exc())
 			continue
 
+def receive_data():
+	while 1:
+		# receive message
+		data, addr = UDPsocket.recvfrom(1024)
+		if not data: break
+
+		# put new message in the queue
+		messages_queue.put_nowait({'data': data, 'addr': addr})
+
+
 
 # used by server listener thread
 def main_loop():
@@ -218,151 +230,157 @@ def main_loop():
 	global self_group_type
 
 	while 1:
+
 		try:
-			data, addr = UDPsocket.recvfrom(1024)
+			input = messages_queue.get(block=False)
+			data, addr = input['data'], input['addr']
+
+		except:
+			continue
+
+		'''Exception as exc:								----> DELETED THAT STUFF
+					# hide errors if disconnected
+					if self_state is not ST_DISCONNECTED:
+						print(traceback.format_exc())'''
+
 
 			# unpack header
-			header = m.unpack_header(data)
-			msg_type = header['type']
-			source_id = header['sourceID']
-			#pprint(header)
+		header = m.unpack_header(data)
+		msg_type = header['type']
+		source_id = header['sourceID']
+		#pprint(header)
 
-			# treat acknowledgement messages according to types
-			if header['A']:
-				#print('Received acknowledgement of type ' + str(msg_type))
-				if msg_type == m.TYPE_DISCONNECTION_REQUEST:
-					#reset user data
-					users.clear()
-					self_id = m.NOBODY_ID
-					self_group_type = m.GROUP_CENTRALIZED
-					self_state = ST_DISCONNECTED
-					print('You have been disconnected.')
-				if msg_type == m.TYPE_GROUP_DISJOINT_REQUEST:
-					print('You left the private group.')
-					# return to centralized group type
-					self_group_type = m.GROUP_CENTRALIZED
+		# treat acknowledgement messages according to types
+		if header['A']:
+			#print('Received acknowledgement of type ' + str(msg_type))
+			if msg_type == m.TYPE_DISCONNECTION_REQUEST:
+				#reset user data
+				users.clear()
+				self_id = m.NOBODY_ID
+				self_group_type = m.GROUP_CENTRALIZED
+				self_state = ST_DISCONNECTED
+				print('You have been disconnected.')
+			if msg_type == m.TYPE_GROUP_DISJOINT_REQUEST:
+				print('You left the private group.')
+				# return to centralized group type
+				self_group_type = m.GROUP_CENTRALIZED
 
 
-			# treat non-acknowledgement messages
-			else:
-				if msg_type == m.TYPE_CONNECTION_ACCEPT:
-					self_id = m.unpack_connection_accept_content(data)
+		# treat non-acknowledgement messages
+		else:
+			if msg_type == m.TYPE_CONNECTION_ACCEPT:
+				self_id = m.unpack_connection_accept_content(data)
 
-					print("Connected to PUBLIC GROUP with id " + str(self_id))
-					self_state = ST_CONNECTED
+				print("Connected to PUBLIC GROUP with id " + str(self_id))
+				self_state = ST_CONNECTED
 
-					# start in centralized mode
-					self_group_type = m.GROUP_CENTRALIZED
+				# start in centralized mode
+				self_group_type = m.GROUP_CENTRALIZED
 
-					# send Acknowledgment as response
-					response = m.acknowledgement(msg_type, 0, self_id)
-					UDPsocket.sendto(response, address_server)
+				# send Acknowledgment as response
+				response = m.acknowledgement(msg_type, 0, self_id)
+				UDPsocket.sendto(response, address_server)
 
-					# send user list request
-					# this message will only be send once after the connection
-					response = m.createUserListRequest(0, self_id)
-					UDPsocket.sendto(response, address_server)
+				# send user list request
+				# this message will only be send once after the connection
+				response = m.createUserListRequest(0, self_id)
+				UDPsocket.sendto(response, address_server)
 
-				elif msg_type == m.TYPE_DATA_MESSAGE:
-					content = header['content']
-					text = content[2:].decode()
-					source = users[source_id]
-					username = source['username']
-					print("%s [%s]: %s" % (username, str(source_id), text))
+			elif msg_type == m.TYPE_DATA_MESSAGE:
+				content = header['content']
+				text = content[2:].decode()
+				source = users[source_id]
+				username = source['username']
+				print("%s [%s]: %s" % (username, str(source_id), text))
 
-				elif msg_type == m.TYPE_GROUP_CREATION_ACCEPT:
-					print("Your group was created.")
+			elif msg_type == m.TYPE_GROUP_CREATION_ACCEPT:
+				print("Your group was created.")
 
-					# change to new group mode
-					self_group_type = own_group_invitation['type']
+				# change to new group mode
+				self_group_type = own_group_invitation['type']
 
-					response = m.acknowledgement(msg_type, 0, self_id)
-					UDPsocket.sendto(response, address_server)
+				response = m.acknowledgement(msg_type, 0, self_id)
+				UDPsocket.sendto(response, address_server)
 
-				elif msg_type == m.TYPE_USER_LIST_RESPONSE:
-					users = m.unpack_user_list_response_content(data)
+			elif msg_type == m.TYPE_USER_LIST_RESPONSE:
+				users = m.unpack_user_list_response_content(data)
 
-					print('Received user list response')
-					pprint(users)
+				print('Received user list response')
+				pprint(users)
 
-					# send Acknowledgment as response
-					response = m.acknowledgement(msg_type, 0, self_id)
-					UDPsocket.sendto(response, address_server)
+				# send Acknowledgment as response
+				response = m.acknowledgement(msg_type, 0, self_id)
+				UDPsocket.sendto(response, address_server)
 
-				elif msg_type == m.TYPE_UPDATE_LIST:
-					changed_users = m.unpack_user_list_response_content(data)
+			elif msg_type == m.TYPE_UPDATE_LIST:
+				changed_users = m.unpack_user_list_response_content(data)
 
-					# update user list
-					for id, client in changed_users.items():
-						users[id] = client
+				# update user list
+				for id, client in changed_users.items():
+					users[id] = client
 
-					# send Acknowledgment as response
-					response = m.acknowledgement(msg_type, 0, self_id)
-					UDPsocket.sendto(response, address_server)
-					print('Changes in the user list. Type "USERS" to see changes')
+				# send Acknowledgment as response
+				response = m.acknowledgement(msg_type, 0, self_id)
+				UDPsocket.sendto(response, address_server)
+				print('Changes in the user list. Type "USERS" to see changes')
 
-				elif msg_type == m.TYPE_UPDATE_DISCONNECTION:
-					client_id = m.unpack_connection_accept_content(data)
+			elif msg_type == m.TYPE_UPDATE_DISCONNECTION:
+				client_id = m.unpack_connection_accept_content(data)
 
-					username = users[client_id]['username']
-					del users[client_id]
+				username = users[client_id]['username']
+				del users[client_id]
 
-					#send Acknowledgment
-					response = m.acknowledgement(msg_type, 0, self_id)
-					UDPsocket.sendto(response, address_server)
+				#send Acknowledgment
+				response = m.acknowledgement(msg_type, 0, self_id)
+				UDPsocket.sendto(response, address_server)
 
-					print(username + '  disconnected.')
+				print(username + '  disconnected.')
 
-				# checks error code. not the best way but works for the two existing codes 0 and 1
-				elif msg_type == m.TYPE_CONNECTION_REJECT:
-					if m.unpack_error_type(data) == 0:
-						print("We are sorry. But the server has exceeded it's maximum number of users")
-					else:
-						print('This username is already taken. Please choose another one.')
+			# checks error code. not the best way but works for the two existing codes 0 and 1
+			elif msg_type == m.TYPE_CONNECTION_REJECT:
+				if m.unpack_error_type(data) == 0:
+					print("We are sorry. But the server has exceeded it's maximum number of users")
+				else:
+					print('This username is already taken. Please choose another one.')
 
-				elif msg_type == m.TYPE_GROUP_INVITATION_REQUEST:
-					group_type, group_id, member_id = m.unpack_group_invitation_request(data)
-					invitation = {}
-					invitation['type']= group_type
-					invitation['id']= group_id
-					invitation['creator']= source_id
-					# add invitation to invitations in stand-by
-					group_invitations[group_id] = invitation
+			elif msg_type == m.TYPE_GROUP_INVITATION_REQUEST:
+				group_type, group_id, member_id = m.unpack_group_invitation_request(data)
+				invitation = {}
+				invitation['type']= group_type
+				invitation['id']= group_id
+				invitation['creator']= source_id
+				# add invitation to invitations in stand-by
+				group_invitations[group_id] = invitation
 
-					# warn user about invitation
-					group_type_label = ('public' if group_type is m.GROUP_CENTRALIZED else 'private')
-					print('User %s[%s] is inviting you to join a %s group\n'
-						  'Type "%s %s" to join group or "%s %s" to reject this invitation.'
-						  % (users[source_id]['username'], source_id,
-							 group_type_label, CMD_ACCEPT_INVITATION, group_id,
-							 CMD_REJECT_INVITATION, group_id))
+				# warn user about invitation
+				group_type_label = ('public' if group_type is m.GROUP_CENTRALIZED else 'private')
+				print('User %s[%s] is inviting you to join a %s group\n'
+					  'Type "%s %s" to join group or "%s %s" to reject this invitation.'
+					  % (users[source_id]['username'], source_id,
+						 group_type_label, CMD_ACCEPT_INVITATION, group_id,
+						 CMD_REJECT_INVITATION, group_id))
 
-				elif msg_type == m.TYPE_GROUP_DISSOLUTION:
-					print('Your group has been deleted because you were the only'
-						  ' member left. You are now in the public group again.')
+			elif msg_type == m.TYPE_GROUP_DISSOLUTION:
+				print('Your group has been deleted because you were the only'
+					  ' member left. You are now in the public group again.')
 
-					# return to centralized group type
-					self_group_type = m.GROUP_CENTRALIZED
+				# return to centralized group type
+				self_group_type = m.GROUP_CENTRALIZED
 
-					# send Acknowledgment
-					response = m.acknowledgement(msg_type, 0, self_id)
-					UDPsocket.sendto(response, address_server)
+				# send Acknowledgment
+				response = m.acknowledgement(msg_type, 0, self_id)
+				UDPsocket.sendto(response, address_server)
 
-					# tell user that his invitation has been rejected
-				elif msg_type == m.TYPE_GROUP_INVITATION_REJECT:
-					username = users[source_id]['username']
-					print('User ' + username + ' rejected your invitation.')
-					if header['R']:
-						print('We are sorry but nobody accepted your request.')
-					# send Acknowledgment
-					response = m.acknowledgement(msg_type, 0, self_id)
-					UDPsocket.sendto(response, address_server)
+				# tell user that his invitation has been rejected
+			elif msg_type == m.TYPE_GROUP_INVITATION_REJECT:
+				username = users[source_id]['username']
+				print('User ' + username + ' rejected your invitation.')
+				if header['R']:
+					print('We are sorry but nobody accepted your request.')
+				# send Acknowledgment
+				response = m.acknowledgement(msg_type, 0, self_id)
+				UDPsocket.sendto(response, address_server)
 
-		except Exception as exc:
-			# hide errors if disconnected
-			if self_state is not ST_DISCONNECTED:
-				print(traceback.format_exc())
-			continue
 
 
 def run_threads():
@@ -373,6 +391,11 @@ def run_threads():
 	thread_listen = threading.Thread(target=main_loop)
 	thread_listen.daemon = True
 	thread_listen.start()
+
+	# start a thread to receive data
+	sender_thread = threading.Thread(target=receive_data)
+	sender_thread.daemon = True
+	sender_thread.start()
 
 	# hang program execution
 	while 1:
