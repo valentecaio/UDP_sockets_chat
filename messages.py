@@ -356,7 +356,7 @@ def unpack_user_list_response_content(msg):
 		username = username.decode().strip()
 
 		user = {'id': client_id, 'group': client_group,
-				'username': username, 'ip':ip, 'port':port}
+				'username': username, 'addr': (ip,port)}
 		user_list[client_id] = user
 
 		offset += 16
