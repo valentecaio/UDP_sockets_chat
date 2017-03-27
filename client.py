@@ -61,7 +61,23 @@ def getIntArgs(s):
 # used by user interface thread
 def read_keyboard():
 	global self_state
+	help_msg =	'\t%s to show this help,\n' \
+				'\t%s <text> to send a message,\n' \
+				'\t%s to connect to server\n' \
+				'\t%s to get the users list\n' \
+				'\t%s <group type> <member_1 id>....<member_n id> ' \
+				'to create a private group (0=centr. and 1=decentr.)\n' \
+				'\t%s <group id> to accept the invitation of this group\n' \
+				'\t%s <group id> to reject the invitation of this group\n' \
+				'\t%s to leave private group and join the public group again\n' \
+				'\t%s to disconnect\n' \
+			  % (CMD_HELP,CMD_SEND,CMD_CONNECT,CMD_USER_LIST,
+				 CMD_CREATE_GROUP, CMD_ACCEPT_INVITATION,
+				 CMD_REJECT_INVITATION, CMD_DISJOINT, CMD_DISCONNECT)
+
+	print(help_msg)
 	print("Type messages to send: \t")
+
 	while 1:
 		try:
 			user_input = input("> ")
@@ -69,17 +85,7 @@ def read_keyboard():
 			#print('command ' + user_cmd)
 
 			if user_cmd == CMD_HELP:
-				print(	'\t%s to show this help,\n'
-						'\t%s <text> to send a message,\n'
-						'\t%s to connect to server\n'
-						'\t%s to get the users list\n'
-						'\t%s <group type> <member_1 id>....<member_n id> to create a private group (0=centr. and 1=decentr.)\n'
-						'\t%s <group id> to accept the invitation of this group\n'
-						'\t%s <group id> to reject the invitation of this group\n'
-						'\t%s to leave private group and join the public group again\n'
-						'\t%s to disconnect\n'
-					  % (CMD_HELP,CMD_SEND,CMD_CONNECT,CMD_USER_LIST, CMD_CREATE_GROUP, CMD_ACCEPT_INVITATION, CMD_REJECT_INVITATION, CMD_DISJOINT, CMD_DISCONNECT))
-
+				print(help_msg)
 			elif user_cmd == CMD_PRINT:
 				print("ID: %s, group: %s, state: %s,\n"
 					  % (self_id, group_users[self_id]['group'], self_state))
@@ -174,7 +180,6 @@ def read_keyboard():
 				elif user_cmd == CMD_DISJOINT:
 					if group_users[self_id]['group'] == 1:
 						print('You are already in the public group.')
-
 					else:
 						#send disjoint request
 						disjoint_request = m.groupDisjointRequest(0, self_id)
@@ -302,9 +307,10 @@ def main_loop():
 					# warn user about invitation
 					group_type_label = ('public' if group_type is 0 else 'private')
 					print('User %s[%s] is inviting you to join a %s group\n'
-						  'Type "%s %s" to join group'
+						  'Type "%s %s" to join group or "%s %s" to reject this invitation.'
 						  % (group_users[source_id]['username'], source_id,
-							 group_type_label, CMD_ACCEPT_INVITATION, group_id))    #TODO: Rejection has to be added here (I was to dumb to do that string stuff)
+							 group_type_label, CMD_ACCEPT_INVITATION, group_id,
+							 CMD_REJECT_INVITATION, group_id))
 
 
 
@@ -319,7 +325,7 @@ def main_loop():
 				elif msg_type == m.TYPE_GROUP_INVITATION_REJECT:
 					username = group_users[source_id]['username']
 					print('User ' + username + ' rejected your invitation.')
-					if header['R'] == 1:
+					if header['R']:
 						print('We are sorry but nobody accepted your request.')
 					# send Acknowledgment
 					response = m.acknowledgement(msg_type, 0, self_id)
