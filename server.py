@@ -2,6 +2,8 @@ import queue
 import socket
 import threading
 from time import sleep
+import select
+import time
 
 import messages as m
 
@@ -115,6 +117,49 @@ def change_group(user_id, new_group_id):
 	else:
 		changed_users[str(user['id'])] = user
 		update_user_list(changed_users)
+
+
+#This function takes type and source_id of the ack that is expected aswell as the massege that may have to be resend and the adress to which it may have to be resend.
+#We are waiting for 3s to get the correct ack an store all different messages that are arriving in that time. They will be put back on the queue to be treated later.																									---------------------------HHHIIIIEEEEEERRRRRRRRR-----------------------
+def wait_for_acknowledgement(type, source_id, data, addr):
+
+	wrong_messages = []
+	#we try 3 times before giving up
+	for i in range(3):
+
+		# 3 seconds from now
+		timeout = time.time() + 3
+		while True:
+
+			#waiting for a message or until the timeout which is 3 seconds
+			ready = select.select([UDPSock], [], [], 3)
+			if ready[0]:
+				received_data, received_addr = UDPSock.recv(1024)
+				header = m.unpack_header(received_data)
+				receiver_type = header['type']
+				receiver_source_id = header['sourceID']
+
+				# if we received the correct ack, pack wrong messages back in the queue and return
+				if receiver_type == type and receiver_source_id == source_id:
+
+					for wrong_message in wrong_messages:
+						messages_queue.put_nowait({'data': wrong_message['data'], 'addr': wrong_message['addr']})
+					return
+
+				#pack wrong message in the wrong messages list
+				else:
+					wrong_message = {}
+					wrong_message['addr'] = received_addr
+					wrong_message['data'] = received_data
+					wrong_messages.append(wrong_message)
+
+			# if more than 3 seconds passed we break the while loop
+			if time.time() > timeout:
+				break
+
+		#resend the message
+		UDPSock.sendto(data, addr)
+
 
 
 ''' thread functions '''
