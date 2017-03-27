@@ -32,7 +32,7 @@ address_server = ('localhost', 1212)
 UDPsocket = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
 self_id = 0
 self_state = ST_DISCONNECTED
-group_users = {}
+users = {}
 group_invitations = {}
 
 
@@ -88,8 +88,8 @@ def read_keyboard():
 				print(help_msg)
 			elif user_cmd == CMD_PRINT:
 				print("ID: %s, group: %s, state: %s,\n"
-					  % (self_id, group_users[self_id]['group'], self_state))
-				pprint(group_users)
+					  % (self_id, users[self_id]['group'], self_state))
+				pprint(users)
 
 			elif user_cmd == CMD_CONNECT:
 				# abort if already connected
@@ -115,7 +115,7 @@ def read_keyboard():
 
 				if user_cmd == CMD_SEND:
 					text = user_input[len(CMD_SEND)+1:].encode('utf-8')
-					msg = m.createDataMessage(0, self_id, group_users[self_id]['group'], text)
+					msg = m.createDataMessage(0, self_id, users[self_id]['group'], text)
 					UDPsocket.sendto(msg, address_server)
 
 				elif user_cmd == CMD_DISCONNECT:
@@ -123,7 +123,7 @@ def read_keyboard():
 					UDPsocket.sendto(msg, address_server)
 
 				elif user_cmd == CMD_USER_LIST:
-					pprint(group_users)
+					pprint(users)
 
 				elif user_cmd == CMD_ACCEPT_INVITATION:
 					args, invalid_arg = getIntArgs(user_input)
@@ -178,7 +178,7 @@ def read_keyboard():
 					UDPsocket.sendto(msg, address_server)
 
 				elif user_cmd == CMD_DISJOINT:
-					if group_users[self_id]['group'] == 1:
+					if users[self_id]['group'] == m.PUBLIC_GROUP_ID:
 						print('You are already in the public group.')
 					else:
 						#send disjoint request
@@ -199,7 +199,7 @@ def read_keyboard():
 
 # used by server listener thread
 def main_loop():
-	global group_users
+	global users
 	global self_id
 	global self_state
 	global group_invitations
@@ -219,7 +219,7 @@ def main_loop():
 				print('Received acknowledgement of type ' + str(msg_type))
 				if msg_type == m.TYPE_DISCONNECTION_REQUEST:
 					#reset user data
-					group_users.clear()
+					users.clear()
 					self_id = 0
 					self_state = ST_DISCONNECTED
 					print('You have been disconnected.')
@@ -247,7 +247,7 @@ def main_loop():
 				elif msg_type == m.TYPE_DATA_MESSAGE:
 					content = header['content']
 					text = content[2:].decode()
-					source = group_users[source_id]
+					source = users[source_id]
 					username = source['username']
 					print("%s [%s]: %s" % (username, str(source_id), text))
 
@@ -255,10 +255,10 @@ def main_loop():
 					print("Your group was created.")
 
 				elif msg_type == m.TYPE_USER_LIST_RESPONSE:
-					group_users = m.unpack_user_list_response_content(data)
+					users = m.unpack_user_list_response_content(data)
 
 					print('received user list response')
-					pprint(group_users)
+					pprint(users)
 
 					# send Acknowledgment as response
 					response = m.acknowledgement(msg_type, 0, self_id)
@@ -269,7 +269,7 @@ def main_loop():
 
 					# update user list
 					for id, client in changed_users.items():
-						group_users[id] = client
+						users[id] = client
 
 					# send Acknowledgment as response
 					response = m.acknowledgement(msg_type, 0, self_id)
@@ -279,8 +279,8 @@ def main_loop():
 				elif msg_type == m.TYPE_UPDATE_DISCONNECTION:
 					client_id = m.unpack_connection_accept_content(data)
 
-					username = group_users[client_id]['username']
-					del group_users[client_id]
+					username = users[client_id]['username']
+					del users[client_id]
 
 					#send Acknowledgment
 					response = m.acknowledgement(msg_type, 0, self_id)
@@ -305,17 +305,16 @@ def main_loop():
 					group_invitations[group_id] = invitation
 
 					# warn user about invitation
-					group_type_label = ('public' if group_type is 0 else 'private')
+					group_type_label = ('public' if group_type is m.GROUP_CENTRALIZED else 'private')
 					print('User %s[%s] is inviting you to join a %s group\n'
 						  'Type "%s %s" to join group or "%s %s" to reject this invitation.'
-						  % (group_users[source_id]['username'], source_id,
+						  % (users[source_id]['username'], source_id,
 							 group_type_label, CMD_ACCEPT_INVITATION, group_id,
 							 CMD_REJECT_INVITATION, group_id))
 
-
-
 				elif msg_type == m.TYPE_GROUP_DISSOLUTION:
-					print('Your group has been deleted because you were the only member left. you are now in the public group again.')
+					print('Your group has been deleted because you were the only'
+						  ' member left. You are now in the public group again.')
 
 					# send Acknowledgment
 					response = m.acknowledgement(msg_type, 0, self_id)
@@ -323,7 +322,7 @@ def main_loop():
 
 					# tell user that his invitation has been rejected
 				elif msg_type == m.TYPE_GROUP_INVITATION_REJECT:
-					username = group_users[source_id]['username']
+					username = users[source_id]['username']
 					print('User ' + username + ' rejected your invitation.')
 					if header['R']:
 						print('We are sorry but nobody accepted your request.')

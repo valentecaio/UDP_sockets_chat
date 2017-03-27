@@ -29,6 +29,10 @@ TYPE_DISCONNECTION_REQUEST = 0x10
 GROUP_CENTRALIZED = 0
 GROUP_DECENTRALIZED = 1
 
+PUBLIC_GROUP_ID = 1
+NOBODY_ID = -1
+
+
 ### internal functions ###
 
 def generateFirstByte(headerType, R, S, A):

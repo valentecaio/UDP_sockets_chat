@@ -14,23 +14,17 @@ except:
 # constants
 ST_CONNECTING = 0
 ST_CONNECTED = 1
-PUBLIC_GROUP_ID = 1
-NOBODY_ID = -1
-TYPE_PUBLIC = 0
-TYPE_PRIVATE = 1
 
 
 clients = {}
-groups = {PUBLIC_GROUP_ID: {'creator': NOBODY_ID, 'id': PUBLIC_GROUP_ID, 'type': TYPE_PUBLIC, 'members': []}}
+groups = {m.PUBLIC_GROUP_ID: {'creator': m.NOBODY_ID, 'id': m.PUBLIC_GROUP_ID,
+							  'type': m.GROUP_CENTRALIZED, 'members': []}}
 group_invitations = {}
 next_client_id = 1
 next_group_id = 2
 UDPSock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 server_address = ('localhost', 1212)
 messages_queue = queue.Queue()
-
-
-
 
 
 #checks if username is already in the list. returns True if username is ok and false if there is already somebody using it
@@ -48,11 +42,11 @@ def connect_client(addr, username):
 	client_id = next_client_id
 	next_client_id += 1
 
-	client = {'id': client_id, 'addr': addr, 'username': username, 'state': ST_CONNECTING, 'group': PUBLIC_GROUP_ID}
+	client = {'id': client_id, 'addr': addr, 'username': username, 'state': ST_CONNECTING, 'group': m.PUBLIC_GROUP_ID}
 	clients[client_id] = client
 
 	# add new client to public group
-	groups[PUBLIC_GROUP_ID]['members'].append(client)
+	groups[m.PUBLIC_GROUP_ID]['members'].append(client)
 
 	print('Connected to a new client: \t', client)
 	return client
@@ -97,7 +91,7 @@ def change_group(user_id, new_group_id):
 	user['group'] = new_group['id']
 
 	#If only one user remains delete group and send a group dissolution, pack that guy in the public group an inform everybody about the changes.
-	if len(old_group['members']) == 1 and old_group_id != PUBLIC_GROUP_ID:
+	if len(old_group['members']) == 1 and old_group_id != m.PUBLIC_GROUP_ID:
 
 		#only member in the old group
 		user_left = old_group['members'][0]
@@ -110,8 +104,8 @@ def change_group(user_id, new_group_id):
 		del groups[old_group_id]
 
 		#change group of old user to public group
-		groups[PUBLIC_GROUP_ID]['members'].append(user_left)
-		clients[user_left['id']]['group']=PUBLIC_GROUP_ID
+		groups[m.PUBLIC_GROUP_ID]['members'].append(user_left)
+		clients[user_left['id']]['group']=m.PUBLIC_GROUP_ID
 
 		#update changes for everyone
 		changed_users[str(user['id'])] = user
@@ -263,7 +257,7 @@ def send_data():
 
 				#changeS group to public group. Necessary because the function change_group takes care that there is more than one user in a group.
 				client = clients[source_id]
-				change_group(source_id, PUBLIC_GROUP_ID)
+				change_group(source_id, m.PUBLIC_GROUP_ID)
 
 				# send acknowledgement
 				response = m.acknowledgement(msg_type, 0, source_id)
@@ -276,7 +270,7 @@ def send_data():
 					print('Sent UPDATE_DISCONNECTION to user ' + str(id))
 
 				# remove client from group and client lists (the del function works well for me, maybe there was a different problem)
-				groups[PUBLIC_GROUP_ID]['members'].remove(client)
+				groups[m.PUBLIC_GROUP_ID]['members'].remove(client)
 				del clients[source_id]
 
 			elif msg_type == m.TYPE_GROUP_CREATION_REQUEST:
@@ -332,7 +326,7 @@ def send_data():
 
 
 			elif msg_type == m.TYPE_GROUP_DISJOINT_REQUEST:
-				change_group(source_id, PUBLIC_GROUP_ID)
+				change_group(source_id, m.PUBLIC_GROUP_ID)
 				print(str(source_id) + ': DISJOINT GROUP')
 
 
