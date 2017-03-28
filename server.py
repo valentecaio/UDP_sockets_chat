@@ -138,7 +138,7 @@ def connect_client(addr, username):
 	client_id = next_client_id
 	next_client_id += 1
 
-	client = {'id': client_id, 'addr': addr, 'username': username, 'state': ST_CONNECTING, 'group': m.PUBLIC_GROUP_ID}
+	client = {'id': client_id, 'addr': addr, 'username': username, 'group': m.PUBLIC_GROUP_ID}
 	clients[client_id] = client
 
 	# add new client to public group
@@ -260,17 +260,6 @@ def send_data():
 		# TODO: this part is now obsolet
 		if header['A']:
 			print(str(source_id) + ': ACKNOWLEDGEMENT of type ' + str(msg_type))
-			'''if msg_type == m.TYPE_CONNECTION_ACCEPT:
-				# code enter here when receiving a connectionAccept acknowledgement
-				# change client state to connected
-				client = clients[source_id]
-				client['state'] = ST_CONNECTED
-				# update list of other users
-				updated_user = {source_id: client}
-				update_user_list(updated_user)
-
-			elif msg_type == m.TYPE_USER_LIST_RESPONSE:
-				pass'''
 		# treat non-acknowledgement messages
 		else:
 			if msg_type == m.TYPE_CONNECTION_REQUEST:
