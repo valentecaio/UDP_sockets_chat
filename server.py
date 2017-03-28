@@ -3,6 +3,7 @@ import socket
 import threading
 from time import sleep
 import time
+from socerr import socerr
 
 import messages as m
 
@@ -23,7 +24,7 @@ groups = {m.PUBLIC_GROUP_ID: {'creator': m.NOBODY_ID, 'id': m.PUBLIC_GROUP_ID,
 group_invitations = {}
 next_client_id = 1
 next_group_id = 2
-UDPSock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+UDPSock = socerr(socket.AF_INET, socket.SOCK_DGRAM, 0) #TODO: the value which is zero can be changed to increase the failure rate (just a info)
 server_address = ('localhost', 1212)
 messages_queue = queue.Queue()
 
@@ -77,7 +78,7 @@ def waiter(type, source_id, wrong_messages, timer):
 	global waiting_flag
 	# 3 seconds from now
 	print('start looping')
-	timeout = time.time() + 3*timer
+	timeout = time.time() + 0.5*timer
 	# get messages from waiting queue
 	while True:
 
@@ -100,7 +101,7 @@ def waiter(type, source_id, wrong_messages, timer):
 		A = header['A']
 
 		# if we received the correct ack, pack wrong messages back in the queue and return
-		if receiver_type == type and receiver_source_id == source_id and A==1:
+		if receiver_type == type and receiver_source_id == source_id:
 			# stop input in the waiting queue
 			waiting_flag = 0
 			# empty the waiting queue if there are still elemnts in there
@@ -266,7 +267,7 @@ def send_data():
 		# TODO: this part is now obsolet
 		if header['A']:
 			print(str(source_id) + ': ACKNOWLEDGEMENT of type ' + str(msg_type))
-			if msg_type == m.TYPE_CONNECTION_ACCEPT:
+			'''if msg_type == m.TYPE_CONNECTION_ACCEPT:
 				# code enter here when receiving a connectionAccept acknowledgement
 				# change client state to connected
 				client = clients[source_id]
@@ -276,7 +277,7 @@ def send_data():
 				update_user_list(updated_user)
 
 			elif msg_type == m.TYPE_USER_LIST_RESPONSE:
-				pass
+				pass'''
 		# treat non-acknowledgement messages
 		else:
 			if msg_type == m.TYPE_CONNECTION_REQUEST:

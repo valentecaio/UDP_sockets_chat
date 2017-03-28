@@ -4,6 +4,7 @@ import queue
 import threading
 import traceback
 import time
+from socerr import socerr
 from time import sleep
 
 import messages as m
@@ -31,7 +32,7 @@ ST_CONNECTED = 1
 
 ''' global variables '''
 address_server = ('localhost', 1212)
-UDPsocket = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
+UDPsocket = socerr(socket.AF_INET, socket.SOCK_DGRAM, 0) #TODO: the value which is zero can be changed to increase the failure rate (just a info)
 self_id = m.NOBODY_ID
 self_state = ST_DISCONNECTED
 self_group_type = m.GROUP_CENTRALIZED
@@ -71,14 +72,14 @@ def getIntArgs(s):
 
 #This function takes type and source_id of the ack that is expected aswell as the message that may have to be resend and the adress to which it may have to be resend.
 #We are waiting for 3s to get the correct ack an store all different messages that are arriving in that time. They will be put back on the queue to be treated later.																									---------------------------HHHIIIIEEEEEERRRRRRRRR-----------------------
-def wait_for_acknowledgement(type, source_id, resend_data, addr):
+def wait_for_acknowledgement(type, source_id, resend_data, addr, save_data_flag = 0):
 	global waiting_flag
 	waiting_flag = 1
 	wrong_messages = []
 	#we try 3 times before giving up
 	for i in range(3):
 		#call waiter function
-		status, wrong_messages = waiter(type, source_id, wrong_messages, (i+1))
+		status, wrong_messages = waiter(type, source_id, wrong_messages, (i+1), save_data_flag)
 
 		if status == 'received':
 			return
@@ -86,7 +87,7 @@ def wait_for_acknowledgement(type, source_id, resend_data, addr):
 		#resend the message (3 times)
 		print('resend')
 		UDPsocket.sendto(resend_data, addr)
-	print('could not send data')
+
 	#if we did not receive the ack we also reset the queue and return
 	# empty the waiting queue if there are still elemnts in there
 	waiting_flag = 0
@@ -105,15 +106,15 @@ def wait_for_acknowledgement(type, source_id, resend_data, addr):
 	return
 
 
-def waiter(type, source_id, wrong_messages, timer):
+def waiter(type, source_id, wrong_messages, timer, save_data_flag):
 	global waiting_flag
 	# 3 seconds from now
-	timeout = time.time() + 3*timer
+	timeout = time.time() + 0.5*timer
 	# get messages from waiting queue
 	while True:
 		# if more than 3 seconds passed we break the while loop
 		if time.time() > timeout:
-			print('timeout for ack')
+
 			status = 'resend'
 			return (status, wrong_messages)
 		try:
@@ -129,10 +130,16 @@ def waiter(type, source_id, wrong_messages, timer):
 		A = header['A']
 
 		# if we received the correct ack, pack wrong messages back in the queue and return
-		if receiver_type == type and receiver_source_id == source_id and A == 1:
+		if receiver_type == type and receiver_source_id == source_id:
 			print('received ack')												#for testing
 			# stop input in the waiting queue
 			waiting_flag = 0
+			#put for message back on the queue if we need the data later
+			if save_data_flag == 1:
+				wrong_message = {}
+				wrong_message['addr'] = received_addr
+				wrong_message['data'] = received_data
+				wrong_messages.append(wrong_message)
 
 			# empty the waiting queue if there are still elemnts in there
 			while waiting_queue.empty() == False:
@@ -144,6 +151,7 @@ def waiter(type, source_id, wrong_messages, timer):
 				wrong_messages.append(wrong_message)
 
 			# put all the messages back in the actual queue
+
 			for wrong_message in wrong_messages:
 				messages_queue.put_nowait({'data': wrong_message['data'], 'addr': wrong_message['addr']})
 
@@ -152,7 +160,7 @@ def waiter(type, source_id, wrong_messages, timer):
 
 		# pack wrong message in the wrong messages list
 		else:
-			print('pack wrong package in list')
+
 			wrong_message = {}
 			wrong_message['addr'] = received_addr
 			wrong_message['data'] = received_data
@@ -218,6 +226,7 @@ def read_keyboard():
 
 				msg = m.createConnectionRequest(0, username)
 				UDPsocket.sendto(msg, address_server)
+				wait_for_acknowledgement(m.TYPE_CONNECTION_ACCEPT, 0x00, msg, address_server, 1)
 
 
 
@@ -387,7 +396,7 @@ def main_loop():
 		#pprint(header)
 		# treat acknowledgement messages according to types
 		if header['A']:
-			print('Received acknowledgement of type ' + str(msg_type))  #TODO: ONLY FOR TESTING!!!!
+			'''print('Received acknowledgement of type ' + str(msg_type))  #TODO: ONLY FOR TESTING!!!!
 			if msg_type == m.TYPE_DISCONNECTION_REQUEST:
 				#reset user data
 				users.clear()
@@ -398,7 +407,8 @@ def main_loop():
 			if msg_type == m.TYPE_GROUP_DISJOINT_REQUEST:
 				print('You left the private group.')
 				# return to centralized group type
-				self_group_type = m.GROUP_CENTRALIZED
+				self_group_type = m.GROUP_CENTRALIZED'''
+			pass												#TODO: we do not need that part anymore
 
 
 		# treat non-acknowledgement messages
@@ -421,6 +431,8 @@ def main_loop():
 				# this message will only be send once after the connection
 				response = m.createUserListRequest(0, self_id)
 				UDPsocket.sendto(response, address_server)
+
+
 
 
 			elif msg_type == m.TYPE_DATA_MESSAGE:
@@ -456,8 +468,8 @@ def main_loop():
 			elif msg_type == m.TYPE_USER_LIST_RESPONSE:
 				users = m.unpack_user_list_response_content(data)
 
-				print('Received user list response')
-				pprint(users)
+				#print('Received user list response')
+				#pprint(users)
 
 				# send Acknowledgment as response
 				response = m.acknowledgement(msg_type, 0, self_id)
