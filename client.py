@@ -110,7 +110,6 @@ def waiter(type, source_id, wrong_messages):
 	# 3 seconds from now
 	timeout = time.time() + 3
 	# get messages from waiting queue
-	print('start looping')
 	while True:
 		# if more than 3 seconds passed we break the while loop
 		if time.time() > timeout:
@@ -231,6 +230,9 @@ def read_keyboard():
 					msg = m.createDataMessage(0, self_id, users[self_id]['group'], text)
 					if self_group_type is m.GROUP_CENTRALIZED:
 						UDPsocket.sendto(msg, address_server)
+
+						# should wait for ack
+
 					else: # decentralized group
 						for _,user in users.items():
 							if user['group'] == users[self_id]['group']:
@@ -399,6 +401,7 @@ def main_loop():
 				response = m.createUserListRequest(0, self_id)
 				UDPsocket.sendto(response, address_server)
 
+
 			elif msg_type == m.TYPE_DATA_MESSAGE:
 				content = header['content']
 				text = content[2:].decode()
@@ -455,6 +458,11 @@ def main_loop():
 					print("We are sorry. But the server has exceeded it's maximum number of users")
 				else:
 					print('This username is already taken. Please choose another one.')
+
+					#send Acknowledgment
+					#source id is set to server source id to recognize user who has no source id yet(not connected).
+					response = m.acknowledgement(msg_type, 0, 0x00)
+					UDPsocket.sendto(response, address_server)
 
 			elif msg_type == m.TYPE_GROUP_INVITATION_REQUEST:
 				group_type, group_id, member_id = m.unpack_group_invitation_request(data)

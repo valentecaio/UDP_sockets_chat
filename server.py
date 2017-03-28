@@ -96,8 +96,6 @@ def waiter(type, source_id, wrong_messages):
 		header = m.unpack_header(received_data)
 		receiver_type = header['type']
 		receiver_source_id = header['sourceID']
-		print(receiver_source_id)
-		print(source_id)
 
 		# if we received the correct ack, pack wrong messages back in the queue and return
 		if receiver_type == type and receiver_source_id == source_id:
@@ -287,14 +285,21 @@ def send_data():
 						response = m.createConnectionAccept(0, client['id'])
 						UDPSock.sendto(response, client['addr'])
 						print('sent CONNECTION_ACCEPT to client')
+						# call waiting for ack function
+						wait_for_acknowledgement(m.TYPE_CONNECTION_ACCEPT, client['id'], response, client['addr'])
 					else:
-						#send error code 0 for maximum of members on the server
+						# send error code 0 for maximum of members on the server
 						response = m.createConnectionReject(0,0)
 						UDPSock.sendto(response, addr)
+						# call waiting for ack function
+						# client has no id yet so we are using the server id for him
+						wait_for_acknowledgement(m.TYPE_CONNECTION_REJECT, 0x00, response, addr)
 				else:
 					#send error code 1 for username already taken
 					response = m.createConnectionReject(0,1)
 					UDPSock.sendto(response, addr)
+					# call waiting for ack function
+					wait_for_acknowledgement(m.TYPE_CONNECTION_REJECT, client['id'], response, client['addr'])
 
 			elif msg_type == m.TYPE_DATA_MESSAGE:
 				# get message text
@@ -315,6 +320,8 @@ def send_data():
 				response = m.createUserListResponse(0, source_id, clients)
 				print('send USER_LIST_REQUEST to client ' + str(source_id))
 				UDPSock.sendto(response, clients[source_id]['addr'])
+				# call waiting for ack funtion
+				wait_for_acknowledgement(m.TYPE_USER_LIST_RESPONSE, client['id'], response, client['addr'])
 
 			elif msg_type == m.TYPE_GROUP_INVITATION_ACCEPT:
 				print(str(source_id) + ': GROUP_INVITATION_ACCEPT')
