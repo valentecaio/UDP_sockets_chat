@@ -161,6 +161,7 @@ def send_message(msg, group_id):
 	for client in receivers:
 		UDPSock.sendto(msg, client['addr'])
 		print("Sent msg to client " + str(client['id']))
+		wait_for_acknowledgement(m.TYPE_DATA_MESSAGE, client['id'], msg, client['addr'])
 
 
 # function to update the list of all users if somebody joined or changed status.
@@ -315,7 +316,7 @@ def send_data():
 
 
 				# send acknowledgement
-				response = m.acknowledgement(msg_type, 0, source_id)
+				response = m.acknowledgement(msg_type, 0, 0x00)       #Attention, all server acks have the source id 0
 				UDPSock.sendto(response, addr)
 
 				# get message text
@@ -362,6 +363,13 @@ def send_data():
 					creator_id = groups[group_id]['creator']
 					change_group(creator_id, group_id)
 
+					# send an creation accept to creator
+					msg = m.groupCreationAccept(0, creator_id,
+												groups[group_id]['type'],
+												group_id)
+					UDPSock.sendto(msg, clients[creator_id]['addr'])
+					wait_for_acknowledgement(m.TYPE_GROUP_CREATION_ACCEPT, creator_id, msg, clients[creator_id]['addr'])
+
 
 				else:
 					# remove user from invitation list
@@ -373,11 +381,6 @@ def send_data():
 					del group_invitations[group_id]
 					print('invitation has been deleted')
 
-				# send an creation accept to creator
-				msg = m.groupCreationAccept(0, creator_id,
-												groups[group_id]['type'],
-												group_id)
-				UDPSock.sendto(msg, clients[creator_id]['addr'])
 				#change group of member
 				change_group(member_id, group_id)
 
