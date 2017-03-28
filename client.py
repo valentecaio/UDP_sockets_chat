@@ -78,7 +78,7 @@ def wait_for_acknowledgement(type, source_id, resend_data, addr):
 	#we try 3 times before giving up
 	for i in range(3):
 		#call waiter function
-		status, wrong_messages = waiter(type, source_id, wrong_messages)
+		status, wrong_messages = waiter(type, source_id, wrong_messages, (i+1))
 
 		if status == 'received':
 			return
@@ -105,10 +105,10 @@ def wait_for_acknowledgement(type, source_id, resend_data, addr):
 	return
 
 
-def waiter(type, source_id, wrong_messages):
+def waiter(type, source_id, wrong_messages, timer):
 	global waiting_flag
 	# 3 seconds from now
-	timeout = time.time() + 3
+	timeout = time.time() + 3*timer
 	# get messages from waiting queue
 	while True:
 		# if more than 3 seconds passed we break the while loop
@@ -126,10 +126,11 @@ def waiter(type, source_id, wrong_messages):
 		header = m.unpack_header(received_data)
 		receiver_type = header['type']
 		receiver_source_id = header['sourceID']
+		A = header['A']
 
 		# if we received the correct ack, pack wrong messages back in the queue and return
-		if receiver_type == type and receiver_source_id == source_id:
-			print('received ack')												#TTTTTEEEEEEEEEEEEEEESSSSSSSSSSSSSSSSSSSSTTTTTTTTTTTTTttt
+		if receiver_type == type and receiver_source_id == source_id and A == 1:
+			print('received ack')												#for testing
 			# stop input in the waiting queue
 			waiting_flag = 0
 
@@ -235,9 +236,11 @@ def read_keyboard():
 						# wait for ack
 						wait_for_acknowledgement(m.TYPE_DATA_MESSAGE, 0x00, msg, address_server)
 
+
 					else: # decentralized group
-						for _,user in users.items():
-							if user['group'] == users[self_id]['group']:
+						#client is sending to group member but not to hisself (causes stability problems)
+						for id ,user in users.items():
+							if user['group'] == users[self_id]['group'] and id != self_id:
 								UDPsocket.sendto(msg, user['addr'])
 								# wait for ack
 								wait_for_acknowledgement(m.TYPE_DATA_MESSAGE, user['id'], msg, user['addr'])
@@ -245,6 +248,9 @@ def read_keyboard():
 				elif user_cmd == CMD_DISCONNECT:
 					msg = m.disconnectionRequest(0, self_id)
 					UDPsocket.sendto(msg, address_server)
+					#wait_for_acknowledgement(m.TYPE_DISCONNECTION_REQUEST, 0x00, msg, address_server)
+					print('demanding deconnection')
+
 
 				elif user_cmd == CMD_USER_LIST:
 					pprint(users)
@@ -267,6 +273,9 @@ def read_keyboard():
 					accept = m.groupInvitationAccept(0, sender_id, self_group_type,
 													 group_id, self_id)
 					UDPsocket.sendto(accept, address_server)
+
+					#wait for ack of the server (source id = 0)
+					wait_for_acknowledgement(m.TYPE_GROUP_INVITATION_ACCEPT, 0x00, accept, address_server)
 					del group_invitations[group_id]
 
 				elif user_cmd == CMD_REJECT_INVITATION:
@@ -316,6 +325,13 @@ def read_keyboard():
 						disjoint_request = m.groupDisjointRequest(0, self_id)
 						UDPsocket.sendto(disjoint_request, address_server)
 
+						# call waiting function
+						wait_for_acknowledgement(m.TYPE_GROUP_DISJOINT_REQUEST, 0x00, disjoint_request, address_server)
+
+						print('You left the private group.')
+						# return to centralized group type
+						self_group_type = m.GROUP_CENTRALIZED
+
 				else:
 					print("This is not a valid command. Type "
 						  + CMD_HELP + " to get some help.")
@@ -358,7 +374,7 @@ def main_loop():
 		except:
 			continue
 
-		'''Exception as exc:								----> DELETED THAT STUFF
+		'''Exception as exc:								----> DELETED
 					# hide errors if disconnected
 					if self_state is not ST_DISCONNECTED:
 						print(traceback.format_exc())'''
@@ -409,7 +425,7 @@ def main_loop():
 
 			elif msg_type == m.TYPE_DATA_MESSAGE:
 
-				#-------------------HHHHHIIIIIIIIIIIIEEEEEEEEEEEEEEEEEERRRRRRRRRRRRRRRR
+
 				content = header['content']
 				text = content[2:].decode()
 				source = users[source_id]
@@ -424,7 +440,7 @@ def main_loop():
 				else:
 					#send ack to user in decentralized group
 					response = m.acknowledgement(msg_type, 0, self_id)
-					UDPsocket.sendto(response, addr)
+					UDPsocket.sendto(response, users[source_id]['addr'])
 
 
 
@@ -448,6 +464,7 @@ def main_loop():
 				UDPsocket.sendto(response, address_server)
 
 			elif msg_type == m.TYPE_UPDATE_LIST:
+
 				changed_users = m.unpack_user_list_response_content(data)
 
 				# update user list
@@ -460,16 +477,35 @@ def main_loop():
 				print('Changes in the user list. Type "USERS" to see changes')
 
 			elif msg_type == m.TYPE_UPDATE_DISCONNECTION:
+
 				client_id = m.unpack_connection_accept_content(data)
+				#if it's the client that disconnected, he will be reseted here
+				if client_id == self_id:
+					# reset user data
+					users.clear()
+					self_id = m.NOBODY_ID
+					self_group_type = m.GROUP_CENTRALIZED
+					self_state = ST_DISCONNECTED
+					print('You have been disconnected.')
+					# send Acknowledgment
+					response = m.acknowledgement(msg_type, 0, client_id)
+					UDPsocket.sendto(response, address_server)
+					'you have been deconnected'
 
-				username = users[client_id]['username']
-				del users[client_id]
+				elif self_state == ST_DISCONNECTED:
+					pass
 
-				#send Acknowledgment
-				response = m.acknowledgement(msg_type, 0, self_id)
-				UDPsocket.sendto(response, address_server)
+				else:
+					username = users[client_id]['username']
+					del users[client_id]
+					# send Acknowledgment
+					response = m.acknowledgement(msg_type, 0, self_id)
+					UDPsocket.sendto(response, address_server)
+					print(username + '  disconnected.')
 
-				print(username + '  disconnected.')
+
+
+
 
 			# checks error code. not the best way but works for the two existing codes 0 and 1
 			elif msg_type == m.TYPE_CONNECTION_REJECT:
@@ -499,6 +535,10 @@ def main_loop():
 					  % (users[source_id]['username'], source_id,
 						 group_type_label, CMD_ACCEPT_INVITATION, group_id,
 						 CMD_REJECT_INVITATION, group_id))
+
+				# send Acknowledgment
+				response = m.acknowledgement(msg_type, 0, self_id)
+				UDPsocket.sendto(response, address_server)
 
 			elif msg_type == m.TYPE_GROUP_DISSOLUTION:
 				print('Your group has been deleted because you were the only'
