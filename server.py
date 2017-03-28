@@ -258,6 +258,7 @@ def send_data():
 		global clients
 
 		# treat acknowledgement messages according to types
+		# TODO: this part is now obsolet
 		if header['A']:
 			print(str(source_id) + ': ACKNOWLEDGEMENT of type ' + str(msg_type))
 			if msg_type == m.TYPE_CONNECTION_ACCEPT:
@@ -268,6 +269,7 @@ def send_data():
 				# update list of other users
 				updated_user = {source_id: client}
 				update_user_list(updated_user)
+
 			elif msg_type == m.TYPE_USER_LIST_RESPONSE:
 				pass
 		# treat non-acknowledgement messages
@@ -285,8 +287,16 @@ def send_data():
 						response = m.createConnectionAccept(0, client['id'])
 						UDPSock.sendto(response, client['addr'])
 						print('sent CONNECTION_ACCEPT to client')
+
 						# call waiting for ack function
 						wait_for_acknowledgement(m.TYPE_CONNECTION_ACCEPT, client['id'], response, client['addr'])
+
+						#satus to connected
+						client['state'] = ST_CONNECTED
+
+						# update list of other users
+						updated_user = {client['id']: client}
+						update_user_list(updated_user)
 					else:
 						# send error code 0 for maximum of members on the server
 						response = m.createConnectionReject(0,0)
@@ -302,8 +312,13 @@ def send_data():
 					wait_for_acknowledgement(m.TYPE_CONNECTION_REJECT, client['id'], response, client['addr'])
 
 			elif msg_type == m.TYPE_DATA_MESSAGE:
+
+
+				# send acknowledgement
+				response = m.acknowledgement(msg_type, 0, source_id)
+				UDPSock.sendto(response, addr)
+
 				# get message text
-				# should send ack
 				content = header['content']
 				text = content[2:].decode()
 				username = clients[source_id]['username']

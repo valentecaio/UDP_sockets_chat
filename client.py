@@ -129,6 +129,7 @@ def waiter(type, source_id, wrong_messages):
 
 		# if we received the correct ack, pack wrong messages back in the queue and return
 		if receiver_type == type and receiver_source_id == source_id:
+			print('received ack')												#TTTTTEEEEEEEEEEEEEEESSSSSSSSSSSSSSSSSSSSTTTTTTTTTTTTTttt
 			# stop input in the waiting queue
 			waiting_flag = 0
 
@@ -231,12 +232,15 @@ def read_keyboard():
 					if self_group_type is m.GROUP_CENTRALIZED:
 						UDPsocket.sendto(msg, address_server)
 
-						# should wait for ack
+						# wait for ack
+						wait_for_acknowledgement(m.TYPE_DATA_MESSAGE, 0x00, msg, address_server)
 
 					else: # decentralized group
 						for _,user in users.items():
 							if user['group'] == users[self_id]['group']:
 								UDPsocket.sendto(msg, user['addr'])
+								# wait for ack
+								wait_for_acknowledgement(m.TYPE_DATA_MESSAGE, user['id'], msg, user['addr'])
 
 				elif user_cmd == CMD_DISCONNECT:
 					msg = m.disconnectionRequest(0, self_id)
@@ -396,6 +400,7 @@ def main_loop():
 				response = m.acknowledgement(msg_type, 0, self_id)
 				UDPsocket.sendto(response, address_server)
 
+
 				# send user list request
 				# this message will only be send once after the connection
 				response = m.createUserListRequest(0, self_id)
@@ -403,18 +408,32 @@ def main_loop():
 
 
 			elif msg_type == m.TYPE_DATA_MESSAGE:
+
+				#-------------------HHHHHIIIIIIIIIIIIEEEEEEEEEEEEEEEEEERRRRRRRRRRRRRRRR
 				content = header['content']
 				text = content[2:].decode()
 				source = users[source_id]
 				username = source['username']
 				print("%s [%s]: %s" % (username, str(source_id), text))
 
+				if self_group_type is m.GROUP_CENTRALIZED:
+					#send ack to server
+					response = m.acknowledgement(msg_type, 0, self_id)
+					UDPsocket.sendto(response, address_server)
+
+				else:
+					#send ack to user in decentralized group
+					response = m.acknowledgement(msg_type, 0, self_id)
+					UDPsocket.sendto(response, addr)
+
+
+
 			elif msg_type == m.TYPE_GROUP_CREATION_ACCEPT:
 				print("Your group was created.")
 
 				# change to new group mode
 				self_group_type = own_group_invitation['type']
-
+				# send ack
 				response = m.acknowledgement(msg_type, 0, self_id)
 				UDPsocket.sendto(response, address_server)
 
