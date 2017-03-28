@@ -29,6 +29,107 @@ server_address = ('localhost', 1212)
 messages_queue = queue.Queue()
 
 
+'''waiting variables'''
+#is set to 1 if we wait for an ack
+waiting_flag = 0
+#queue that is used if an ack should arrive
+waiting_queue = queue.Queue()
+
+
+'''Waiting and resend functions'''
+
+#This function takes type and source_id of the ack that is expected aswell as the massege that may have to be resend and the adress to which it may have to be resend.
+#We are waiting for 3s to get the correct ack an store all different messages that are arriving in that time. They will be put back on the queue to be treated later.																									---------------------------HHHIIIIEEEEEERRRRRRRRR-----------------------
+def wait_for_acknowledgement(type, source_id, resend_data, addr):
+	global waiting_flag
+	wrong_messages = []
+	breaker = 0
+	#we try 3 times before giving up
+	for i in range(3):
+		#call waiter function
+		status, wrong_messages = waiter(type, source_id, wrong_messages)
+
+		if status == 'received':
+			return
+
+		#resend the message (3 times)
+		print('resend')
+		UDPSock.sendto(resend_data, addr)
+	print('could not send data')
+	#if we did not receive the ack we also reset the queue and return
+	waiting_flag = 0
+
+	# empty the waiting queue if there are still elements in there
+	while waiting_queue.empty() == False:
+		input = waiting_queue.get(block=False)
+		received_data, received_addr = input['data'], input['addr']
+		wrong_message = {}
+		wrong_message['addr'] = received_addr
+		wrong_message['data'] = received_data
+		wrong_messages.append(wrong_message)
+
+	# put all the messages back
+	for wrong_message in wrong_messages:
+		messages_queue.put_nowait({'data': wrong_message['data'], 'addr': wrong_message['addr']})
+	return
+
+
+def waiter(type, source_id, wrong_messages):
+	global waiting_flag
+	# 3 seconds from now
+	timeout = time.time() + 3
+	# get messages from waiting queue
+	print('start looping')
+	while True:
+		# if more than 3 seconds passed we break the while loop
+		if time.time() > timeout:
+			print('timeout for ack')
+			status = 'resend'
+			return (status, wrong_messages)
+		try:
+			input = waiting_queue.get(block=False)
+			received_data, received_addr = input['data'], input['addr']
+
+		except:
+			continue
+
+		header = m.unpack_header(received_data)
+		receiver_type = header['type']
+		receiver_source_id = header['sourceID']
+
+		# if we received the correct ack, pack wrong messages back in the queue and return
+		if receiver_type == type and receiver_source_id == source_id:
+			# stop input in the waiting queue
+			waiting_flag = 0
+
+			# empty the waiting queue if there are still elemnts in there
+			while waiting_queue.empty() == False:
+				input = waiting_queue.get(block=False)
+				received_data, received_addr = input['data'], input['addr']
+				wrong_message = {}
+				wrong_message['addr'] = received_addr
+				wrong_message['data'] = received_data
+				wrong_messages.append(wrong_message)
+
+			# put all the messages back in the actual queue
+			for wrong_message in wrong_messages:
+				messages_queue.put_nowait({'data': wrong_message['data'], 'addr': wrong_message['addr']})
+
+			status = 'received'
+			return(status, wrong_messages)
+
+		# pack wrong message in the wrong messages list
+		else:
+			print('pack wrong package in list')
+			wrong_message = {}
+			wrong_message['addr'] = received_addr
+			wrong_message['data'] = received_data
+			wrong_messages.append(wrong_message)
+
+
+
+''' functions for list administration '''
+
 #checks if username is already in the list. returns True if username is ok and false if there is already somebody using it
 def check_username(username):
 	for id, client in clients.items():
@@ -119,47 +220,6 @@ def change_group(user_id, new_group_id):
 		update_user_list(changed_users)
 
 
-#This function takes type and source_id of the ack that is expected aswell as the massege that may have to be resend and the adress to which it may have to be resend.
-#We are waiting for 3s to get the correct ack an store all different messages that are arriving in that time. They will be put back on the queue to be treated later.																									---------------------------HHHIIIIEEEEEERRRRRRRRR-----------------------
-def wait_for_acknowledgement(type, source_id, data, addr):
-
-	wrong_messages = []
-	#we try 3 times before giving up
-	for i in range(3):
-
-		# 3 seconds from now
-		timeout = time.time() + 3
-		while True:
-
-			#waiting for a message or until the timeout which is 3 seconds
-			ready = select.select([UDPSock], [], [], 3)
-			if ready[0]:
-				received_data, received_addr = UDPSock.recv(1024)
-				header = m.unpack_header(received_data)
-				receiver_type = header['type']
-				receiver_source_id = header['sourceID']
-
-				# if we received the correct ack, pack wrong messages back in the queue and return
-				if receiver_type == type and receiver_source_id == source_id:
-
-					for wrong_message in wrong_messages:
-						messages_queue.put_nowait({'data': wrong_message['data'], 'addr': wrong_message['addr']})
-					return
-
-				#pack wrong message in the wrong messages list
-				else:
-					wrong_message = {}
-					wrong_message['addr'] = received_addr
-					wrong_message['data'] = received_data
-					wrong_messages.append(wrong_message)
-
-			# if more than 3 seconds passed we break the while loop
-			if time.time() > timeout:
-				break
-
-		#resend the message
-		UDPSock.sendto(data, addr)
-
 
 
 ''' thread functions '''
@@ -172,8 +232,10 @@ def receive_data():
 		if not data: break
 
 		# put new message in the queue
-		messages_queue.put_nowait({'data': data, 'addr': addr})
-
+		if waiting_flag == 0:
+			messages_queue.put_nowait({'data': data, 'addr': addr})
+		else:
+			waiting_queue.put_nowait({'data': data, 'addr': addr})
 
 def send_data():
 	while 1:
@@ -324,7 +386,7 @@ def send_data():
 				print("User %s is inviting members %s to a group of type %s"
 					  % (source_id, members, group_type))
 
-				ack = m.acknowledgement(m.TYPE_GROUP_CREATION_REQUEST, 0, source_id)
+				ack = m.acknowledgement(m.TYPE_GROUP_CREATION_REQUEST, 0, 0x00)  #TODO: server acks always have the source id 0. That has to be changed for other acks. Id can be changed to test functionality of the resend function
 				UDPSock.sendto(ack,clients[source_id]['addr'])
 
 				# get an ID to new group
