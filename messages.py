@@ -1,6 +1,7 @@
 import ctypes
 import socket
 import struct
+from core import *
 
 try:
 	from pprint import pprint
@@ -130,12 +131,12 @@ def createUserListResponse(S, sourceID, userDictionary):
 		offset = (5+counter*16)
 
 		# packing address so that it can be send (ip adress has to be converted to the format long)
-		ip, port = userDictionary[key]['addr']
+		ip, port = userDictionary[key].address
 		ip_int = struct.unpack('>L', socket.inet_aton(ip))[0]
 
-		packed_username = bytes(usernameWithPadding(userDictionary[key]['username']), 'utf8')
-		client_id = userDictionary[key]['id']
-		client_group = userDictionary[key]['group']
+		packed_username = bytes(usernameWithPadding(userDictionary[key].username), 'utf8')
+		client_id = userDictionary[key].id
+		client_group = userDictionary[key].group
 
 		struct.pack_into('>BB8sLH', buf, offset, client_id, client_group, packed_username, ip_int, port)
 
@@ -267,12 +268,12 @@ def createUpdateList(S, updated_users):
 		offset = (5 + counter * 16)
 
 		# packing address so that it can be send (ip adress has to be converted to the format long)
-		ip, port = updated_users[key]['addr']
+		ip, port = updated_users[key].address
 		ip_int = struct.unpack('>L', socket.inet_aton(ip))[0]
 
-		packed_username = bytes(usernameWithPadding(updated_users[key]['username']), 'utf8')
-		client_id = updated_users[key]['id']
-		client_group = updated_users[key]['group']
+		packed_username = bytes(usernameWithPadding(updated_users[key].username), 'utf8')
+		client_id = updated_users[key].id
+		client_group = updated_users[key].group
 
 		struct.pack_into('>BB8sLH', buf, offset, client_id, client_group, packed_username, ip_int, port)
 
@@ -355,8 +356,7 @@ def unpack_user_list_response_content(msg):
 		ip = socket.inet_ntoa(struct.pack('>L',ip_int))
 		username = username.decode().strip()
 
-		user = {'id': client_id, 'group': client_group,
-				'username': username, 'addr': (ip,port)}
+		user = User(client_id, username, client_group, (ip,port))
 		user_list[client_id] = user
 
 		offset += 16

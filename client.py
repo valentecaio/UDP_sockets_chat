@@ -195,7 +195,7 @@ def read_keyboard():
 				print(help_msg)
 			elif user_cmd == CMD_PRINT:
 				print("ID: %s, group: %s, state: %s, group_type: %s\n"
-					  % (self_id, users[self_id]['group'], self_state, self_group_type))
+					  % (self_id, users[self_id].group, self_state, self_group_type))
 				pprint(users)
 
 			elif user_cmd == CMD_CONNECT:
@@ -226,7 +226,7 @@ def read_keyboard():
 				if user_cmd == CMD_SEND:
 					text = user_input[len(CMD_SEND)+1:].encode('utf-8')
 					pprint(users)
-					msg = m.createDataMessage(0, self_id, users[self_id]['group'], text)
+					msg = m.createDataMessage(0, self_id, users[self_id].group, text)
 					if self_group_type is m.GROUP_CENTRALIZED:
 						UDPsocket.sendto(msg, address_server)
 
@@ -237,10 +237,10 @@ def read_keyboard():
 					else: # decentralized group
 						#client is sending to group member but not to hisself (causes stability problems)
 						for id ,user in users.items():
-							if user['group'] == users[self_id]['group'] and id != self_id:
-								UDPsocket.sendto(msg, user['addr'])
+							if user.group == users[self_id].group and id != self_id:
+								UDPsocket.sendto(msg, user.address)
 								# wait for ack
-								wait_for_acknowledgement(m.TYPE_DATA_MESSAGE, user['id'], msg, user['addr'])
+								wait_for_acknowledgement(m.TYPE_DATA_MESSAGE, user.id, msg, user.address)
 
 				elif user_cmd == CMD_DISCONNECT:
 					msg = m.disconnectionRequest(0, self_id)
@@ -315,7 +315,7 @@ def read_keyboard():
 
 
 				elif user_cmd == CMD_DISJOINT:
-					if users[self_id]['group'] == m.PUBLIC_GROUP_ID:
+					if users[self_id].group == m.PUBLIC_GROUP_ID:
 						print('You are already in the public group.')
 					else:
 						#send disjoint request
@@ -430,7 +430,7 @@ def main_loop():
 				content = header['content']
 				text = content[2:].decode()
 				source = users[source_id]
-				username = source['username']
+				username = source.username
 				print("%s [%s]: %s" % (username, str(source_id), text))
 
 				if self_group_type is m.GROUP_CENTRALIZED:
@@ -441,7 +441,7 @@ def main_loop():
 				else:
 					#send ack to user in decentralized group
 					response = m.acknowledgement(msg_type, 0, self_id)
-					UDPsocket.sendto(response, users[source_id]['addr'])
+					UDPsocket.sendto(response, users[source_id].address)
 
 
 
@@ -497,7 +497,7 @@ def main_loop():
 					pass
 
 				else:
-					username = users[client_id]['username']
+					username = users[client_id].username
 					del users[client_id]
 					# send Acknowledgment
 					response = m.acknowledgement(msg_type, 0, self_id)
@@ -533,7 +533,7 @@ def main_loop():
 				group_type_label = ('public' if group_type is m.GROUP_CENTRALIZED else 'private')
 				print('User %s[%s] is inviting you to join a %s group\n'
 					  'Type "%s %s" to join group or "%s %s" to reject this invitation.'
-					  % (users[source_id]['username'], source_id,
+					  % (users[source_id].username, source_id,
 						 group_type_label, CMD_ACCEPT_INVITATION, group_id,
 						 CMD_REJECT_INVITATION, group_id))
 
@@ -554,7 +554,7 @@ def main_loop():
 
 				# tell user that his invitation has been rejected
 			elif msg_type == m.TYPE_GROUP_INVITATION_REJECT:
-				username = users[source_id]['username']
+				username = users[source_id].username
 				print('User ' + username + ' rejected your invitation.')
 				if header['R']:
 					print('We are sorry but nobody accepted your request.')
