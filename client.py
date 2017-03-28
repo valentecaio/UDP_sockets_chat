@@ -30,9 +30,12 @@ CMD_DISJOINT = 'DISJOINT'
 ST_DISCONNECTED = 0
 ST_CONNECTED = 1
 
+# this value can be changed to increase the failure rate
+SOCKET_ERROR_RATE = 0
+
 ''' global variables '''
 address_server = ('localhost', 1212)
-UDPsocket = socerr(socket.AF_INET, socket.SOCK_DGRAM, 0) #TODO: the value which is zero can be changed to increase the failure rate (just a info)
+UDPsocket = socerr(socket.AF_INET, socket.SOCK_DGRAM, SOCKET_ERROR_RATE)
 self_id = m.NOBODY_ID
 self_state = ST_DISCONNECTED
 self_group_type = m.GROUP_CENTRALIZED
@@ -353,17 +356,22 @@ def read_keyboard():
 
 def receive_data():
 	while 1:
-		# receive message
-		data, addr = UDPsocket.recvfrom(1024)
-		if not data: break
+		try:
+			# receive message
+			data, addr = UDPsocket.recvfrom(1024)
+			if not data: break
 
-		# put new message in the queue
-		#if he is waiting for an ack, new masseges are put on a different queue to prevent conflicts between the two threads
-		if waiting_flag == 0:
-			messages_queue.put_nowait({'data': data, 'addr': addr})
-		else:
-			waiting_queue.put_nowait({'data': data, 'addr': addr})
-
+			# put new message in the queue
+			#if he is waiting for an ack, new masseges are put on a different queue to prevent conflicts between the two threads
+			if waiting_flag:
+				waiting_queue.put_nowait({'data': data, 'addr': addr})
+			else:
+				messages_queue.put_nowait({'data': data, 'addr': addr})
+		except:
+			# hide errors if disconnected
+			if self_state is not ST_DISCONNECTED:
+				print(traceback.format_exc())
+			continue
 
 
 # used by server listener thread
