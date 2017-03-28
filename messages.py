@@ -396,7 +396,7 @@ def unpack_group_creation_request(msg):
 		memberID = struct.unpack_from(">B", msg, offset)[0]
 		user_list.append(memberID)
 		offset += 1
-	print(str(group_type))
+
 	return group_type, user_list
 
 

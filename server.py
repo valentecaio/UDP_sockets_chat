@@ -70,10 +70,10 @@ def update_user_list(updated_users):
 		print('Sent UPDATE_LIST to user ' + str(id))
 	return
 
+
 #This function changes the group of a user.
 #It takes care that a group dissolution will be initiated if only one user is left (except of course for the public group)
 def change_group(user_id, new_group_id):
-
 	#change groups on the server
 	global clients
 	global groups
@@ -90,7 +90,8 @@ def change_group(user_id, new_group_id):
 
 	user['group'] = new_group['id']
 
-	#If only one user remains delete group and send a group dissolution, pack that guy in the public group an inform everybody about the changes.
+	# If only one user remains delete group and send a group dissolution,
+	# put that guy in the public group an inform everybody about the changes.
 	if len(old_group['members']) == 1 and old_group_id != m.PUBLIC_GROUP_ID:
 
 		#only member in the old group
@@ -202,7 +203,7 @@ def send_data():
 				print(str(source_id) + ': USER_LIST_REQUEST')
 				# send user list
 				group_id = clients[source_id]['group']
-				# TODO: it's always sending clients list --> don't see the problem. This message is only sended once, when somebody connects, so he needs the list.
+
 				response = m.createUserListResponse(0, source_id, clients)
 				print('send USER_LIST_REQUEST to client ' + str(source_id))
 				UDPSock.sendto(response, clients[source_id]['addr'])
@@ -323,12 +324,9 @@ def send_data():
 
 				UDPSock.sendto(msg, clients[source_id]['addr'])
 
-
-
 			elif msg_type == m.TYPE_GROUP_DISJOINT_REQUEST:
 				change_group(source_id, m.PUBLIC_GROUP_ID)
 				print(str(source_id) + ': DISJOINT GROUP')
-
 
 				# send acknowledgement
 				response = m.acknowledgement(msg_type, 0, source_id)
