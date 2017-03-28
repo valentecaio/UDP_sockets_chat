@@ -443,19 +443,21 @@ def send_data():
 				reject_member = clients[member_id]
 				group_invitations[group_id]['members'].remove(reject_member['id'])
 
-				# delete from group_invitation dict if nobody accepted
+				# delete group from group_invitation dict if nobody accepted
 				if len(group_invitations[group_id]['members']) == 0 and group_id not in groups:
-					msg = m.groupInvitationReject(0, group_invitations[group_id]['creator'],                            # put flag if last user rejected
+					msg = m.groupInvitationReject(0, group_invitations[group_id]['creator'],                            # put flag 1 if last user rejected
 											  group_invitations[group_id]['type'],
 										  group_id, member_id, 1)
 					del group_invitations[group_id]
 					print('invitation has been deleted')
+
 				else:
-					msg = m.groupInvitationReject(0, group_invitations[group_id]['creator'],
+					msg = m.groupInvitationReject(0, group_invitations[group_id]['creator'],							# leave flag 0 if user that rejected was not the last one
 												  group_invitations[group_id]['type'],
 												  group_id, member_id)
 
 				UDPSock.sendto(msg, clients[source_id]['addr'])
+				wait_for_acknowledgement(m.TYPE_GROUP_INVITATION_REJECT, source_id, msg, clients[source_id]['addr'])
 
 
 
