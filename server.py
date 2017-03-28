@@ -4,6 +4,7 @@ import threading
 from time import sleep
 import time
 from socerr import socerr
+from core import *
 
 import messages as m
 
@@ -30,8 +31,8 @@ messages_queue = queue.Queue()
 
 
 '''waiting variables'''
-#is set to 1 if we wait for an ack
-waiting_flag = 0
+#is set to True if we wait for an ack
+waiting_flag = False
 #queue that is used if an ack should arrive
 waiting_queue = queue.Queue()
 
@@ -42,7 +43,7 @@ waiting_queue = queue.Queue()
 #We are waiting for 3s to get the correct ack an store all different messages that are arriving in that time. They will be put back on the queue to be treated later.																									---------------------------HHHIIIIEEEEEERRRRRRRRR-----------------------
 def wait_for_acknowledgement(type, source_id, resend_data, addr):
 	global waiting_flag
-	waiting_flag = 1
+	waiting_flag = True
 	wrong_messages = []
 	#we try 3 times before giving up
 	for i in range(3):
@@ -57,20 +58,16 @@ def wait_for_acknowledgement(type, source_id, resend_data, addr):
 		UDPSock.sendto(resend_data, addr)
 	print('could not send data')
 	#if we did not receive the ack we also reset the queue and return
-	waiting_flag = 0
+	waiting_flag = False
 
 	# empty the waiting queue if there are still elements in there
 	while waiting_queue.empty() == False:
 		input = waiting_queue.get(block=False)
-		received_data, received_addr = input['data'], input['addr']
-		wrong_message = {}
-		wrong_message['addr'] = received_addr
-		wrong_message['data'] = received_data
-		wrong_messages.append(wrong_message)
+		wrong_messages.append(input)
 
 	# put all the messages back in the normal queue
 	for wrong_message in wrong_messages:
-		messages_queue.put_nowait({'data': wrong_message['data'], 'addr': wrong_message['addr']})
+		messages_queue.put_nowait(wrong_message)
 	return
 
 
@@ -89,7 +86,7 @@ def waiter(type, source_id, wrong_messages, timer):
 			return (status, wrong_messages)
 		try:
 			input = waiting_queue.get(block=False)
-			received_data, received_addr = input['data'], input['addr']
+			received_data, received_addr = input.data, input.address
 
 		except:
 			continue
@@ -103,19 +100,15 @@ def waiter(type, source_id, wrong_messages, timer):
 		# if we received the correct ack, pack wrong messages back in the queue and return
 		if receiver_type == type and receiver_source_id == source_id:
 			# stop input in the waiting queue
-			waiting_flag = 0
+			waiting_flag = False
 			# empty the waiting queue if there are still elemnts in there
-			while waiting_queue.empty() == False:
+			while not waiting_queue.empty():
 				input = waiting_queue.get(block=False)
-				received_data, received_addr = input['data'], input['addr']
-				wrong_message = {}
-				wrong_message['addr'] = received_addr
-				wrong_message['data'] = received_data
-				wrong_messages.append(wrong_message)
+				wrong_messages.append(input)
 
 			# put all the messages back in the actual queue
 			for wrong_message in wrong_messages:
-				messages_queue.put_nowait({'data': wrong_message['data'], 'addr': wrong_message['addr']})
+				messages_queue.put_nowait(wrong_message)
 
 			status = 'received'
 			return(status, wrong_messages)
@@ -123,9 +116,7 @@ def waiter(type, source_id, wrong_messages, timer):
 		# pack wrong message in the wrong messages list
 		else:
 			print('pack wrong package in list')
-			wrong_message = {}
-			wrong_message['addr'] = received_addr
-			wrong_message['data'] = received_data
+			wrong_message = Message(received_data, received_addr)
 			wrong_messages.append(wrong_message)
 
 
@@ -199,7 +190,7 @@ def change_group(user_id, new_group_id):
 
 	# If only one user remains delete group and send a group dissolution,
 	# put that guy in the public group an inform everybody about the changes.
-	if len(old_group['members']) == 1 and old_group_id != m.PUBLIC_GROUP_ID:
+	if len(old_group['members']) == m.PUBLIC_GROUP_ID and old_group_id != m.PUBLIC_GROUP_ID:
 
 		#only member in the old group
 		user_left = old_group['members'][0]
@@ -239,10 +230,11 @@ def receive_data():
 		if not data: break
 
 		# put new message in the queue
-		if waiting_flag == 0:
-			messages_queue.put_nowait({'data': data, 'addr': addr})
+		new_msg = Message(data, addr)
+		if waiting_flag:
+			waiting_queue.put_nowait(new_msg)
 		else:
-			waiting_queue.put_nowait({'data': data, 'addr': addr})
+			messages_queue.put_nowait(new_msg)
 
 def send_data():
 	while 1:
@@ -250,7 +242,7 @@ def send_data():
 		# if there's no message, try again without blocking
 		try:
 			input = messages_queue.get(block=False)
-			data, addr = input['data'], input['addr']
+			data, addr = input.data, input.address
 		except:
 			continue
 

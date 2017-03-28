@@ -6,6 +6,7 @@ import traceback
 import time
 from socerr import socerr
 from time import sleep
+from core import *
 
 import messages as m
 
@@ -46,8 +47,8 @@ messages_queue = queue.Queue()
 
 
 '''waiting variables'''
-#is set to 1 if we wait for an ack
-waiting_flag = 0
+#is set to True if we wait for an ack
+waiting_flag = False
 #queue that is used if an ack should arrive
 waiting_queue = queue.Queue()
 
@@ -75,9 +76,9 @@ def getIntArgs(s):
 
 #This function takes type and source_id of the ack that is expected aswell as the message that may have to be resend and the adress to which it may have to be resend.
 #We are waiting for 3s to get the correct ack an store all different messages that are arriving in that time. They will be put back on the queue to be treated later.																									---------------------------HHHIIIIEEEEEERRRRRRRRR-----------------------
-def wait_for_acknowledgement(type, source_id, resend_data, addr, save_data_flag = 0):
+def wait_for_acknowledgement(type, source_id, resend_data, addr, save_data_flag = False):
 	global waiting_flag
-	waiting_flag = 1
+	waiting_flag = True
 	wrong_messages = []
 	#we try 3 times before giving up
 	for i in range(3):
@@ -93,19 +94,15 @@ def wait_for_acknowledgement(type, source_id, resend_data, addr, save_data_flag 
 
 	#if we did not receive the ack we also reset the queue and return
 	# empty the waiting queue if there are still elemnts in there
-	waiting_flag = 0
+	waiting_flag = False
 
 	while waiting_queue.empty() == False:
 		input = waiting_queue.get(block=False)
-		received_data, received_addr = input['data'], input['addr']
-		wrong_message = {}
-		wrong_message['addr'] = received_addr
-		wrong_message['data'] = received_data
-		wrong_messages.append(wrong_message)
+		wrong_messages.append(input)
 
 	# put all the messages back in the normal queue
 	for wrong_message in wrong_messages:
-		messages_queue.put_nowait({'data': wrong_message['data'], 'addr': wrong_message['addr']})
+		messages_queue.put_nowait(wrong_message)
 	return
 
 
@@ -122,7 +119,7 @@ def waiter(type, source_id, wrong_messages, timer, save_data_flag):
 			return (status, wrong_messages)
 		try:
 			input = waiting_queue.get(block=False)
-			received_data, received_addr = input['data'], input['addr']
+			received_data, received_addr = input.data, input.address
 
 		except:
 			continue
@@ -136,40 +133,27 @@ def waiter(type, source_id, wrong_messages, timer, save_data_flag):
 		if receiver_type == type and receiver_source_id == source_id:
 			print('received ack')												#for testing
 			# stop input in the waiting queue
-			waiting_flag = 0
+			waiting_flag = False
 			#put for message back on the queue if we need the data later
-			if save_data_flag == 1:
-				wrong_message = {}
-				wrong_message['addr'] = received_addr
-				wrong_message['data'] = received_data
-				wrong_messages.append(wrong_message)
+			if save_data_flag:
+				wrong_messages.append(input)
 
 			# empty the waiting queue if there are still elemnts in there
-			while waiting_queue.empty() == False:
+			while not waiting_queue.empty():
 				input = waiting_queue.get(block=False)
-				received_data, received_addr = input['data'], input['addr']
-				wrong_message = {}
-				wrong_message['addr'] = received_addr
-				wrong_message['data'] = received_data
-				wrong_messages.append(wrong_message)
+				wrong_messages.append(input)
 
 			# put all the messages back in the actual queue
 
 			for wrong_message in wrong_messages:
-				messages_queue.put_nowait({'data': wrong_message['data'], 'addr': wrong_message['addr']})
+				messages_queue.put_nowait(wrong_message)
 
 			status = 'received'
 			return(status, wrong_messages)
 
 		# pack wrong message in the wrong messages list
 		else:
-
-			wrong_message = {}
-			wrong_message['addr'] = received_addr
-			wrong_message['data'] = received_data
-			wrong_messages.append(wrong_message)
-
-
+			wrong_messages.append(input)
 
 
 ''' thread functions '''
@@ -241,6 +225,7 @@ def read_keyboard():
 
 				if user_cmd == CMD_SEND:
 					text = user_input[len(CMD_SEND)+1:].encode('utf-8')
+					pprint(users)
 					msg = m.createDataMessage(0, self_id, users[self_id]['group'], text)
 					if self_group_type is m.GROUP_CENTRALIZED:
 						UDPsocket.sendto(msg, address_server)
@@ -354,6 +339,7 @@ def read_keyboard():
 				print(traceback.format_exc())
 			continue
 
+
 def receive_data():
 	while 1:
 		try:
@@ -363,10 +349,11 @@ def receive_data():
 
 			# put new message in the queue
 			#if he is waiting for an ack, new masseges are put on a different queue to prevent conflicts between the two threads
+			new_msg = Message(data, addr)
 			if waiting_flag:
-				waiting_queue.put_nowait({'data': data, 'addr': addr})
+				waiting_queue.put_nowait(new_msg)
 			else:
-				messages_queue.put_nowait({'data': data, 'addr': addr})
+				messages_queue.put_nowait(new_msg)
 		except:
 			# hide errors if disconnected
 			if self_state is not ST_DISCONNECTED:
@@ -386,16 +373,10 @@ def main_loop():
 
 		try:
 			input = messages_queue.get(block=False)
-			data, addr = input['data'], input['addr']
+			data, addr = input.data, input.address
 
 		except:
 			continue
-
-		'''Exception as exc:								----> DELETED
-					# hide errors if disconnected
-					if self_state is not ST_DISCONNECTED:
-						print(traceback.format_exc())'''
-
 
 			# unpack header
 		header = m.unpack_header(data)
