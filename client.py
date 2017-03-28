@@ -73,6 +73,7 @@ def getIntArgs(s):
 #We are waiting for 3s to get the correct ack an store all different messages that are arriving in that time. They will be put back on the queue to be treated later.																									---------------------------HHHIIIIEEEEEERRRRRRRRR-----------------------
 def wait_for_acknowledgement(type, source_id, resend_data, addr):
 	global waiting_flag
+	waiting_flag = 1
 	wrong_messages = []
 	breaker = 0
 	#we try 3 times before giving up
@@ -88,9 +89,9 @@ def wait_for_acknowledgement(type, source_id, resend_data, addr):
 		UDPsocket.sendto(resend_data, addr)
 	print('could not send data')
 	#if we did not receive the ack we also reset the queue and return
+	# empty the waiting queue if there are still elemnts in there
 	waiting_flag = 0
 
-	# empty the waiting queue if there are still elemnts in there
 	while waiting_queue.empty() == False:
 		input = waiting_queue.get(block=False)
 		received_data, received_addr = input['data'], input['addr']
@@ -297,8 +298,8 @@ def read_keyboard():
 					msg = m.groupCreationRequest(0, self_id, args[0], args[1:])
 					UDPsocket.sendto(msg, address_server)
 
-					#set waiting flag
-					waiting_flag = 1
+
+					#call waiting function
 					wait_for_acknowledgement(m.TYPE_GROUP_CREATION_REQUEST, 0x00, msg, address_server)
 
 

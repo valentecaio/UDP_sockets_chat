@@ -2,7 +2,6 @@ import queue
 import socket
 import threading
 from time import sleep
-import select
 import time
 
 import messages as m
@@ -42,6 +41,7 @@ waiting_queue = queue.Queue()
 #We are waiting for 3s to get the correct ack an store all different messages that are arriving in that time. They will be put back on the queue to be treated later.																									---------------------------HHHIIIIEEEEEERRRRRRRRR-----------------------
 def wait_for_acknowledgement(type, source_id, resend_data, addr):
 	global waiting_flag
+	waiting_flag = 1
 	wrong_messages = []
 	breaker = 0
 	#we try 3 times before giving up
@@ -77,10 +77,11 @@ def wait_for_acknowledgement(type, source_id, resend_data, addr):
 def waiter(type, source_id, wrong_messages):
 	global waiting_flag
 	# 3 seconds from now
-	timeout = time.time() + 3
-	# get messages from waiting queue
 	print('start looping')
+	timeout = time.time() + 10
+	# get messages from waiting queue
 	while True:
+
 		# if more than 3 seconds passed we break the while loop
 		if time.time() > timeout:
 			print('timeout for ack')
@@ -96,12 +97,13 @@ def waiter(type, source_id, wrong_messages):
 		header = m.unpack_header(received_data)
 		receiver_type = header['type']
 		receiver_source_id = header['sourceID']
+		print(receiver_source_id)
+		print(source_id)
 
 		# if we received the correct ack, pack wrong messages back in the queue and return
 		if receiver_type == type and receiver_source_id == source_id:
 			# stop input in the waiting queue
 			waiting_flag = 0
-
 			# empty the waiting queue if there are still elemnts in there
 			while waiting_queue.empty() == False:
 				input = waiting_queue.get(block=False)
@@ -171,6 +173,7 @@ def update_user_list(updated_users):
 		msg = m.createUpdateList(0, updated_users)
 		UDPSock.sendto(msg, client['addr'])
 		print('Sent UPDATE_LIST to user ' + str(id))
+		wait_for_acknowledgement(m.TYPE_UPDATE_LIST, client['id'], msg, client['addr'])
 	return
 
 #This function changes the group of a user.
