@@ -1,4 +1,4 @@
-import messages as m
+import constants as c
 
 class Message():
 	def __init__(self, data, address):
@@ -24,7 +24,7 @@ class User():
 		return "%s [%s]" % (self.username, self.id)
 
 class Group():
-	def __init__(self, type=m.GROUP_CENTRALIZED, members=[],
+	def __init__(self, type=c.GROUP_CENTRALIZED, members=[],
 				 id='No ID', creator_id='No creator'):
 		self.id = id
 		self.creator = creator_id
@@ -32,9 +32,9 @@ class Group():
 		self.members = members
 
 	def __repr__(self):
-		if self.id == m.PUBLIC_GROUP_ID:
+		if self.id == c.PUBLIC_GROUP_ID:
 			type = 'PUBLIC'
-		elif self.type == m.GROUP_CENTRALIZED:
+		elif self.type == c.GROUP_CENTRALIZED:
 			type = 'CENTRALIZED'
 		else:
 			type = 'DECENTRALIZED'

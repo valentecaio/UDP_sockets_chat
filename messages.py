@@ -3,35 +3,12 @@ import socket
 import struct
 import core
 
+import constants as c
+
 try:
 	from pprint import pprint
 except:
 	pprint = print
-
-# type constants
-TYPE_CONNECTION_REQUEST = 0x00
-TYPE_CONNECTION_ACCEPT = 0x01
-TYPE_CONNECTION_REJECT = 0x02
-TYPE_USER_LIST_REQUEST = 0x03
-TYPE_USER_LIST_RESPONSE = 0x04
-TYPE_DATA_MESSAGE = 0x05
-TYPE_GROUP_CREATION_REQUEST = 0x06
-TYPE_GROUP_CREATION_ACCEPT = 0x07
-TYPE_GROUP_CREATION_REJECT = 0x08
-TYPE_GROUP_INVITATION_REQUEST = 0x09
-TYPE_GROUP_INVITATION_ACCEPT = 0x0A
-TYPE_GROUP_INVITATION_REJECT = 0x0B
-TYPE_GROUP_DISJOINT_REQUEST = 0x0C
-TYPE_GROUP_DISSOLUTION = 0x0D
-TYPE_UPDATE_LIST = 0x0E
-TYPE_UPDATE_DISCONNECTION = 0x0F
-TYPE_DISCONNECTION_REQUEST = 0x10
-
-GROUP_CENTRALIZED = 0
-GROUP_DECENTRALIZED = 1
-
-PUBLIC_GROUP_ID = 1
-NOBODY_ID = -1
 
 
 ### internal functions ###
@@ -39,10 +16,12 @@ NOBODY_ID = -1
 def generateFirstByte(headerType, R, S, A):
 	return (headerType << 3) + (R << 2) + (S << 1) + A
 
+
 # The field for the username consists of 8 byte. This function adds spaces which can't be part of an actual username.
 def usernameWithPadding(username):
 	username = username.ljust(8)
 	return username
+
 
 # This function removes the spaces that have been added for the transmission.
 def usernameWithoutPadding(username):
@@ -60,7 +39,7 @@ def createConnectionRequest(S, username):
 	headerLength = 0x000D
 	sourceID = 0
 	groupId = 0
-	firstByte = generateFirstByte(TYPE_CONNECTION_REQUEST,0,S,0)
+	firstByte = generateFirstByte(c.TYPE_CONNECTION_REQUEST,0,S,0)
 	buf = ctypes.create_string_buffer(headerLength)
 	packed_username = bytes(usernameWithPadding(username), 'utf8')
 	struct.pack_into('>BBBH8s', buf, 0, firstByte, sourceID, groupId, headerLength, packed_username)
@@ -74,7 +53,7 @@ def createConnectionAccept(S, clientID):
 	sourceID = 0
 	groupId = 0
 
-	firstByte = generateFirstByte(TYPE_CONNECTION_ACCEPT,0,S,0)
+	firstByte = generateFirstByte(c.TYPE_CONNECTION_ACCEPT,0,S,0)
 	buf = ctypes.create_string_buffer(headerLength)
 	struct.pack_into('>BBBHB', buf, 0, firstByte, sourceID, groupId, headerLength, clientID)
 	return buf
@@ -89,7 +68,7 @@ def createConnectionReject(S, errorType):
 	sourceID = 0
 	groupId = 0
 
-	firstByte = generateFirstByte(TYPE_CONNECTION_REJECT, 0, S, 0)
+	firstByte = generateFirstByte(c.TYPE_CONNECTION_REJECT, 0, S, 0)
 	buf = ctypes.create_string_buffer(headerLength)
 	struct.pack_into('>BBBHB', buf, 0, firstByte, sourceID, groupId, headerLength, errorType)
 	return buf
@@ -102,7 +81,7 @@ def createUserListRequest(S, sourceID):
 	headerLength = 0x0005
 	groupId = 0x01
 
-	firstByte = generateFirstByte(TYPE_USER_LIST_REQUEST, 0, S, 0)
+	firstByte = generateFirstByte(c.TYPE_USER_LIST_REQUEST, 0, S, 0)
 	buf = ctypes.create_string_buffer(headerLength)
 	struct.pack_into('>BBBH', buf, 0, firstByte, sourceID, groupId, headerLength)
 	return buf
@@ -117,7 +96,7 @@ def createUserListResponse(S, sourceID, userDictionary):
 	headerLength = 0X005
 	optionsLength = 16*len(userDictionary)
 
-	firstByte = generateFirstByte(TYPE_USER_LIST_RESPONSE, 0, S, 0)
+	firstByte = generateFirstByte(c.TYPE_USER_LIST_RESPONSE, 0, S, 0)
 	buf = ctypes.create_string_buffer(headerLength + optionsLength)
 
 	# Packing the first 5 bytes which are always given
@@ -150,7 +129,7 @@ def createUserListResponse(S, sourceID, userDictionary):
 def createDataMessage(S, sourceID, groupID, data):
 	headerLength=0x007
 	dataLength = len(data)
-	firstByte = generateFirstByte(TYPE_DATA_MESSAGE, 0, S, 0)
+	firstByte = generateFirstByte(c.TYPE_DATA_MESSAGE, 0, S, 0)
 	buf = ctypes.create_string_buffer(headerLength + dataLength)
 	struct.pack_into('>BBBHH' + str(dataLength) + 's', buf, 0, firstByte, sourceID, groupID, headerLength, dataLength, data)
 	return buf
@@ -163,7 +142,7 @@ def groupCreationRequest(S, sourceID, communicationType, memberList):
 	# group ID for that type of massage is 0 by default (see protocol specification)
 	groupId = 0x00
 	headerLength = 6 + len(memberList)
-	firstByte = generateFirstByte(TYPE_GROUP_CREATION_REQUEST, 0, S, 0)
+	firstByte = generateFirstByte(c.TYPE_GROUP_CREATION_REQUEST, 0, S, 0)
 	buf = ctypes.create_string_buffer(headerLength)
 	struct.pack_into('>BBBHB', buf, 0, firstByte, sourceID, groupId, headerLength, communicationType)
 
@@ -178,7 +157,7 @@ def groupCreationRequest(S, sourceID, communicationType, memberList):
 # The groupID is given in the optional part of the header to tell the client the ID of his group that now has been created.
 def groupCreationAccept(S, sourceID, communicationType, groupID):
 	headerLength = 0x007
-	firstByte = generateFirstByte(TYPE_GROUP_CREATION_ACCEPT, 0, S, 0)
+	firstByte = generateFirstByte(c.TYPE_GROUP_CREATION_ACCEPT, 0, S, 0)
 	buf = ctypes.create_string_buffer(headerLength)
 	struct.pack_into('>BBBHBB', buf, 0, firstByte, sourceID, 0, headerLength, communicationType, groupID)
 	return buf
@@ -188,7 +167,7 @@ def groupCreationAccept(S, sourceID, communicationType, groupID):
 def groupCreationReject(S, sourceID):
 	headerLength = 0x005
 	groupID = 0
-	firstByte = generateFirstByte(TYPE_CONNECTION_REJECT, 0, S, 0)
+	firstByte = generateFirstByte(c.TYPE_CONNECTION_REJECT, 0, S, 0)
 	buf = ctypes.create_string_buffer(headerLength)
 	struct.pack_into('>BBBH', buf, 0, firstByte, sourceID, groupID, headerLength)
 	return buf
@@ -199,7 +178,7 @@ def groupCreationReject(S, sourceID):
 # They are specifieng the group ID that will be used for the members that join the group an the member that has been invited.
 def groupInvitationRequest(S, sourceID, communicationType, groupID, clientID):
 	headerLength = 0x008
-	firstByte = generateFirstByte(TYPE_GROUP_INVITATION_REQUEST, 0, S, 0)
+	firstByte = generateFirstByte(c.TYPE_GROUP_INVITATION_REQUEST, 0, S, 0)
 	buf = ctypes.create_string_buffer(headerLength)
 	struct.pack_into('>BBBHBBB', buf, 0, firstByte, sourceID, 0, headerLength, communicationType, groupID, clientID)
 	return buf
@@ -209,7 +188,7 @@ def groupInvitationRequest(S, sourceID, communicationType, groupID, clientID):
 # The last 3 inputs are the same as in the correspondig invitation.
 def groupInvitationAccept(S,sourceID, communicationType, groupID, clientID):
 	headerLength = 0x008
-	firstByte = generateFirstByte(TYPE_GROUP_INVITATION_ACCEPT, 0, S, 0)
+	firstByte = generateFirstByte(c.TYPE_GROUP_INVITATION_ACCEPT, 0, S, 0)
 	buf = ctypes.create_string_buffer(headerLength)
 	struct.pack_into('>BBBHBBB', buf, 0, firstByte, sourceID, 0, headerLength, communicationType, groupID, clientID)
 	return buf
@@ -218,7 +197,7 @@ def groupInvitationAccept(S,sourceID, communicationType, groupID, clientID):
 #The structure is the same as for the invitation accept just with a different type declaration.
 def groupInvitationReject(S,sourceID, communicationType, groupID, clientID, R=0):
 	headerLength = 0x008
-	firstByte = generateFirstByte(TYPE_GROUP_INVITATION_REJECT, R, S, 0)
+	firstByte = generateFirstByte(c.TYPE_GROUP_INVITATION_REJECT, R, S, 0)
 	buf = ctypes.create_string_buffer(headerLength)
 	struct.pack_into('>BBBHBBB', buf, 0, firstByte, sourceID, 0, headerLength, communicationType, groupID, clientID)
 	return buf
@@ -228,7 +207,7 @@ def groupInvitationReject(S,sourceID, communicationType, groupID, clientID, R=0)
 def groupDisjointRequest(S, sourceID):
 	headerLength = 0x005
 	groupID = 0
-	firstByte = generateFirstByte(TYPE_GROUP_DISJOINT_REQUEST, 0, S, 0)
+	firstByte = generateFirstByte(c.TYPE_GROUP_DISJOINT_REQUEST, 0, S, 0)
 	buf = ctypes.create_string_buffer(headerLength)
 	struct.pack_into('>BBBH', buf, 0, firstByte, sourceID, groupID, headerLength)
 	return buf
@@ -240,7 +219,7 @@ def groupDisjointRequest(S, sourceID):
 def groupDissolution(S, groupID):
 	headerLength = 0x005
 	userID = 0
-	firstByte = generateFirstByte(TYPE_GROUP_DISSOLUTION, 0, S, 0)
+	firstByte = generateFirstByte(c.TYPE_GROUP_DISSOLUTION, 0, S, 0)
 	buf = ctypes.create_string_buffer(headerLength)
 	struct.pack_into('>BBBH', buf, 0, firstByte, userID, groupID, headerLength)
 	return buf
@@ -255,7 +234,7 @@ def createUpdateList(S, updated_users):
 	headerLength = 0X005
 	optionsLength = 16 * len(updated_users)
 
-	firstByte = generateFirstByte(TYPE_UPDATE_LIST, 0, S, 0)
+	firstByte = generateFirstByte(c.TYPE_UPDATE_LIST, 0, S, 0)
 	buf = ctypes.create_string_buffer(headerLength + optionsLength)
 
 	# Packing the first 5 bytes which are always given
@@ -285,7 +264,7 @@ def createUpdateList(S, updated_users):
 # The source ID is 0 and the group ID is 0xFFF which means that the broadcast address is used.
 def updateDisconnection(S, clientID):
 	headerLength = 0x006
-	firstByte = generateFirstByte(TYPE_UPDATE_DISCONNECTION, 0, S, 0)
+	firstByte = generateFirstByte(c.TYPE_UPDATE_DISCONNECTION, 0, S, 0)
 	buf = ctypes.create_string_buffer(headerLength)
 	struct.pack_into('>BBBHB', buf, 0, firstByte, 0, 0xFF, headerLength, clientID)
 	return buf
@@ -295,7 +274,7 @@ def updateDisconnection(S, clientID):
 # The source ID specifies the user that wants to deconnect.
 def disconnectionRequest(S, sourceID):
 	headerLength = 0x005
-	firstByte = generateFirstByte(TYPE_DISCONNECTION_REQUEST, 0, S, 0)
+	firstByte = generateFirstByte(c.TYPE_DISCONNECTION_REQUEST, 0, S, 0)
 	buf = ctypes.create_string_buffer(headerLength)
 	struct.pack_into('>BBBH', buf, 0, firstByte, sourceID, 0, headerLength)
 	return buf
