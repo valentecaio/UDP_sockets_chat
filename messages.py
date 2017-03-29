@@ -1,9 +1,9 @@
 import ctypes
 import socket
 import struct
-import core
 
 import constants as c
+import core
 
 try:
 	from pprint import pprint

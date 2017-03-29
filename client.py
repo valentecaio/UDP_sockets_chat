@@ -1,15 +1,15 @@
 # Echo client program
-import socket
 import queue
+import socket
 import threading
-import traceback
 import time
-from socerr import socerr
+import traceback
 from time import sleep
-from core import *
 
-import messages as m
 import constants as c
+import messages as m
+from core import *
+from socerr import socerr
 
 try:
 	from pprint import pprint

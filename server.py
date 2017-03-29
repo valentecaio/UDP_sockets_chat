@@ -1,13 +1,13 @@
 import queue
 import socket
 import threading
-from time import sleep
 import time
-from socerr import socerr
-from core import *
+from time import sleep
 
-import messages as m
 import constants as c
+import messages as m
+from core import *
+from socerr import socerr
 
 try:
 	from pprint import pprint

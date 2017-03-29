@@ -1,5 +1,5 @@
-from socket import socket
 import random
+from socket import socket
 
 
 class socerr(socket):
