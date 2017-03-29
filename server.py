@@ -208,12 +208,12 @@ def change_group(user_id, new_group_id):
 		user_left.group=m.PUBLIC_GROUP_ID
 
 		#update changes for everyone
-		changed_users[str(user.id)] = user
-		changed_users[str(user_left.id)] = user_left
+		changed_users[user.id] = user
+		changed_users[user_left.id] = user_left
 		update_user_list(changed_users)
 
 	else:
-		changed_users[str(user.id)] = user
+		changed_users[user.id] = user
 		update_user_list(changed_users)
 
 
