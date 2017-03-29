@@ -14,6 +14,8 @@ try:
 except:
 	pprint = print
 
+# this value can be changed to increase the failure rate
+SOCKET_ERROR_RATE = 0
 
 clients = {}
 groups = {c.PUBLIC_GROUP_ID: Group(id=c.PUBLIC_GROUP_ID, creator_id=c.NOBODY_ID,
@@ -21,7 +23,7 @@ groups = {c.PUBLIC_GROUP_ID: Group(id=c.PUBLIC_GROUP_ID, creator_id=c.NOBODY_ID,
 group_invitations = {}
 next_client_id = 1
 next_group_id = 2
-UDPSock = socerr(socket.AF_INET, socket.SOCK_DGRAM, 0) #TODO: the value which is zero can be changed to increase the failure rate (just a info)
+UDPSock = socerr(socket.AF_INET, socket.SOCK_DGRAM, SOCKET_ERROR_RATE) #TODO: the value which is zero can be changed to increase the failure rate (just a info)
 server_address = ('localhost', 1212)
 messages_queue = queue.Queue()
 
@@ -69,15 +71,13 @@ def wait_for_acknowledgement(types, source_id, resend_data, addr):
 
 def waiter(types, source_id, wrong_messages, timer):
 	global waiting_flag
-	# 3 seconds from now
-	print('start looping')
+	# 0.5s from now
 	timeout = time.time() + 0.5*timer
 	# get messages from waiting queue
 	while True:
 
-		# if more than 3 seconds passed we break the while loop
+		# if time passed we break the while loop
 		if time.time() > timeout:
-			print('timeout for ack')
 			status = 'resend'
 			return (status, wrong_messages)
 		try:
@@ -97,6 +97,7 @@ def waiter(types, source_id, wrong_messages, timer):
 		if receiver_type in types and receiver_source_id == source_id:
 			# stop input in the waiting queue
 			waiting_flag = False
+			print('received ack')
 			# empty the waiting queue if there are still elemnts in there
 			while not waiting_queue.empty():
 				input = waiting_queue.get(block=False)
@@ -111,7 +112,6 @@ def waiter(types, source_id, wrong_messages, timer):
 
 		# pack wrong message in the wrong messages list
 		else:
-			print('pack wrong package in list')
 			wrong_message = Message(received_data, received_addr)
 			wrong_messages.append(wrong_message)
 

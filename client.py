@@ -61,7 +61,7 @@ def getIntArgs(s):
 '''Waiting and resend functions'''
 
 #This function takes type and source_id of the ack that is expected aswell as the message that may have to be resend and the adress to which it may have to be resend.
-#We are waiting for 3s to get the correct ack an store all different messages that are arriving in that time. They will be put back on the queue to be treated later.																									---------------------------HHHIIIIEEEEEERRRRRRRRR-----------------------
+#We are waiting for 0.5s to get the correct ack an store all different messages that are arriving in that time. They will be put back on the queue to be treated later.																									---------------------------HHHIIIIEEEEEERRRRRRRRR-----------------------
 def wait_for_acknowledgement(types, source_id, resend_data, addr, save_data_flag = False):
 	global waiting_flag
 	waiting_flag = True
@@ -94,11 +94,11 @@ def wait_for_acknowledgement(types, source_id, resend_data, addr, save_data_flag
 
 def waiter(types, source_id, wrong_messages, timer, save_data_flag):
 	global waiting_flag
-	# 3 seconds from now
+	# 0.5 seconds from now
 	timeout = time.time() + 0.5*timer
 	# get messages from waiting queue
 	while True:
-		# if more than 3 seconds passed we break the while loop
+		# if more than 0.5 seconds passed we break the while loop
 		if time.time() > timeout:
 
 			status = 'resend'
