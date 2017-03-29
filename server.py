@@ -285,7 +285,7 @@ def send_data():
 				UDPSock.sendto(response, addr)
 				# call waiting for ack function
 
-				wait_for_acknowledgement([c.TYPE_CONNECTION_REJECT], client.id, response, addr)
+				wait_for_acknowledgement([c.TYPE_CONNECTION_REJECT], c.SERVER_ID, response, addr)
 
 		elif msg_type == c.TYPE_DATA_MESSAGE:
 			# send acknowledgement
