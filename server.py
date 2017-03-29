@@ -15,11 +15,6 @@ except:
 	pprint = print
 
 
-# constants
-ST_CONNECTING = 0
-ST_CONNECTED = 1
-
-
 clients = {}
 groups = {c.PUBLIC_GROUP_ID: Group(id=c.PUBLIC_GROUP_ID, creator_id=c.NOBODY_ID,
 								   type=c.GROUP_CENTRALIZED, members=[])}
@@ -279,14 +274,14 @@ def send_data():
 					update_user_list(updated_user)
 				else:
 					# send error code 0 for maximum of members on the server
-					response = m.createConnectionReject(0,0)
+					response = m.createConnectionReject(0,c.ERR0R_MAXIMUM_MEMBER_NUMBER)
 					UDPSock.sendto(response, addr)
 					# call waiting for ack function
 					# client has no id yet so we are using the server id for him
 					wait_for_acknowledgement(c.TYPE_CONNECTION_REJECT, c.SERVER_ID, response, addr)
 			else:
 				#send error code 1 for username already taken
-				response = m.createConnectionReject(0,1)
+				response = m.createConnectionReject(0,c.ERROR_USERNAME_ALREADY_TAKEN)
 				UDPSock.sendto(response, addr)
 				# call waiting for ack function
 				wait_for_acknowledgement(c.TYPE_CONNECTION_REJECT, client.id, response, client.address)

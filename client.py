@@ -469,7 +469,7 @@ def main_loop():
 
 		# checks error code. not the best way but works for the two existing codes 0 and 1
 		elif msg_type ==  c.TYPE_CONNECTION_REJECT:
-			if m.unpack_error_type(data) == 0:
+			if m.unpack_error_type(data) == c.ERR0R_MAXIMUM_MEMBER_NUMBER:
 				print("We are sorry. But the server has exceeded it's maximum number of users")
 			else:
 				print('This username is already taken. Please choose another one.')
