@@ -62,14 +62,14 @@ def getIntArgs(s):
 
 #This function takes type and source_id of the ack that is expected aswell as the message that may have to be resend and the adress to which it may have to be resend.
 #We are waiting for 3s to get the correct ack an store all different messages that are arriving in that time. They will be put back on the queue to be treated later.																									---------------------------HHHIIIIEEEEEERRRRRRRRR-----------------------
-def wait_for_acknowledgement(type, source_id, resend_data, addr, save_data_flag = False):
+def wait_for_acknowledgement(types, source_id, resend_data, addr, save_data_flag = False):
 	global waiting_flag
 	waiting_flag = True
 	wrong_messages = []
 	#we try 3 times before giving up
 	for i in range(3):
 		#call waiter function
-		status, wrong_messages = waiter(type, source_id, wrong_messages, (i+1), save_data_flag)
+		status, wrong_messages = waiter(types, source_id, wrong_messages, (i+1), save_data_flag)
 
 		if status == 'received':
 			return
@@ -92,7 +92,7 @@ def wait_for_acknowledgement(type, source_id, resend_data, addr, save_data_flag 
 	return
 
 
-def waiter(type, source_id, wrong_messages, timer, save_data_flag):
+def waiter(types, source_id, wrong_messages, timer, save_data_flag):
 	global waiting_flag
 	# 3 seconds from now
 	timeout = time.time() + 0.5*timer
@@ -116,7 +116,7 @@ def waiter(type, source_id, wrong_messages, timer, save_data_flag):
 		A = header['A']
 
 		# if we received the correct ack, pack wrong messages back in the queue and return
-		if receiver_type == type and receiver_source_id == source_id:
+		if receiver_type in types and receiver_source_id == source_id:
 			print('received ack')												#for testing
 			# stop input in the waiting queue
 			waiting_flag = False
@@ -152,7 +152,6 @@ def read_keyboard():
 	global self_id
 	global own_group_invitation
 	global waiting_flag
-
 
 	help_msg =	'\t%s to show this help,\n' \
 				'\t%s <text> to send a message,\n' \
@@ -199,9 +198,7 @@ def read_keyboard():
 
 				msg = m.createConnectionRequest(0, username)
 				UDPsocket.sendto(msg, address_server)
-				wait_for_acknowledgement( c.TYPE_CONNECTION_ACCEPT, 0x00, msg, address_server, 1)
-
-
+				wait_for_acknowledgement([c.TYPE_CONNECTION_ACCEPT, c.TYPE_CONNECTION_REJECT], c.SERVER_ID, msg, address_server, 1)
 
 			else:
 				# abort others commands if not connected
@@ -216,7 +213,7 @@ def read_keyboard():
 						UDPsocket.sendto(msg, address_server)
 
 						# wait for ack
-						wait_for_acknowledgement( c.TYPE_DATA_MESSAGE, 0x00, msg, address_server)
+						wait_for_acknowledgement([c.TYPE_DATA_MESSAGE], c.SERVER_ID, msg, address_server)
 
 
 					else: # decentralized group
@@ -225,12 +222,12 @@ def read_keyboard():
 							if user.group == users[self_id].group and id != self_id:
 								UDPsocket.sendto(msg, user.address)
 								# wait for ack
-								wait_for_acknowledgement( c.TYPE_DATA_MESSAGE, user.id, msg, user.address)
+								wait_for_acknowledgement([c.TYPE_DATA_MESSAGE], user.id, msg, user.address)
 
 				elif user_cmd == c.CMD_DISCONNECT:
 					msg = m.disconnectionRequest(0, self_id)
 					UDPsocket.sendto(msg, address_server)
-					#wait_for_acknowledgement( c.TYPE_DISCONNECTION_REQUEST, 0x00, msg, address_server)
+					#wait_for_acknowledgement([c.TYPE_DISCONNECTION_REQUEST], c.SERVER_ID, msg, address_server)
 					print('demanding deconnection')
 
 
@@ -257,7 +254,7 @@ def read_keyboard():
 					UDPsocket.sendto(accept, address_server)
 
 					#wait for ack of the server (source id = 0)
-					wait_for_acknowledgement( c.TYPE_GROUP_INVITATION_ACCEPT, 0x00, accept, address_server)
+					wait_for_acknowledgement([c.TYPE_GROUP_INVITATION_ACCEPT], c.SERVER_ID, accept, address_server)
 					del group_invitations[group_id]
 
 				elif user_cmd == c.CMD_REJECT_INVITATION:
@@ -296,7 +293,7 @@ def read_keyboard():
 
 
 					#call waiting function
-					wait_for_acknowledgement( c.TYPE_GROUP_CREATION_REQUEST, 0x00, msg, address_server)
+					wait_for_acknowledgement([c.TYPE_GROUP_CREATION_REQUEST], c.SERVER_ID, msg, address_server)
 
 
 				elif user_cmd == c.CMD_DISJOINT:
@@ -308,7 +305,7 @@ def read_keyboard():
 						UDPsocket.sendto(disjoint_request, address_server)
 
 						# call waiting function
-						wait_for_acknowledgement( c.TYPE_GROUP_DISJOINT_REQUEST, 0x00, disjoint_request, address_server)
+						wait_for_acknowledgement([c.TYPE_GROUP_DISJOINT_REQUEST], c.SERVER_ID, disjoint_request, address_server)
 
 						print('You left the private group.')
 						# return to centralized group type
@@ -383,7 +380,6 @@ def main_loop():
 			response = m.acknowledgement(msg_type, 0, self_id)
 			UDPsocket.sendto(response, address_server)
 
-
 			# send user list request
 			# this message will only be send once after the connection
 			response = m.createUserListRequest(0, self_id)
@@ -405,7 +401,6 @@ def main_loop():
 				#send ack to user in decentralized group
 				response = m.acknowledgement(msg_type, 0, self_id)
 				UDPsocket.sendto(response, users[source_id].address)
-
 
 		elif msg_type ==  c.TYPE_GROUP_CREATION_ACCEPT:
 			print("Your group was created.")
@@ -466,7 +461,6 @@ def main_loop():
 				UDPsocket.sendto(response, address_server)
 				print(username + '  disconnected.')
 
-
 		# checks error code. not the best way but works for the two existing codes 0 and 1
 		elif msg_type ==  c.TYPE_CONNECTION_REJECT:
 			if m.unpack_error_type(data) == c.ERR0R_MAXIMUM_MEMBER_NUMBER:
@@ -476,7 +470,7 @@ def main_loop():
 
 				#send Acknowledgment
 				#source id is set to server source id to recognize user who has no source id yet(not connected).
-				response = m.acknowledgement(msg_type, 0, 0x00)
+				response = m.acknowledgement(msg_type, 0, c.SERVER_ID)
 				UDPsocket.sendto(response, address_server)
 
 		elif msg_type ==  c.TYPE_GROUP_INVITATION_REQUEST:

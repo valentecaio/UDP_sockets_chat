@@ -37,14 +37,14 @@ waiting_queue = queue.Queue()
 
 #This function takes type and source_id of the ack that is expected aswell as the message that may have to be resend and the adress to which it may have to be resend.
 #We are waiting for 3s to get the correct ack an store all different messages that are arriving in that time. They will be put back on the queue to be treated later.																									---------------------------HHHIIIIEEEEEERRRRRRRRR-----------------------
-def wait_for_acknowledgement(type, source_id, resend_data, addr):
+def wait_for_acknowledgement(types, source_id, resend_data, addr):
 	global waiting_flag
 	waiting_flag = True
 	wrong_messages = []
 	#we try 3 times before giving up
 	for i in range(3):
 		#call waiter function
-		status, wrong_messages = waiter(type, source_id, wrong_messages, (i+1))
+		status, wrong_messages = waiter(types, source_id, wrong_messages, (i+1))
 
 		if status == 'received':
 			return
@@ -67,7 +67,7 @@ def wait_for_acknowledgement(type, source_id, resend_data, addr):
 	return
 
 
-def waiter(type, source_id, wrong_messages, timer):
+def waiter(types, source_id, wrong_messages, timer):
 	global waiting_flag
 	# 3 seconds from now
 	print('start looping')
@@ -94,7 +94,7 @@ def waiter(type, source_id, wrong_messages, timer):
 		A = header['A']
 
 		# if we received the correct ack, pack wrong messages back in the queue and return
-		if receiver_type == type and receiver_source_id == source_id:
+		if receiver_type in types and receiver_source_id == source_id:
 			# stop input in the waiting queue
 			waiting_flag = False
 			# empty the waiting queue if there are still elemnts in there
@@ -151,7 +151,7 @@ def send_message(msg, group_id):
 	for client in receivers:
 		UDPSock.sendto(msg, client.address)
 		print("Sent msg to client " + str(client))
-		wait_for_acknowledgement(c.TYPE_DATA_MESSAGE, client.id, msg, client.address)
+		wait_for_acknowledgement([c.TYPE_DATA_MESSAGE], client.id, msg, client.address)
 
 
 # function to update the list of all users if somebody joined or changed status.
@@ -161,7 +161,7 @@ def update_user_list(updated_users):
 		msg = m.createUpdateList(0, updated_users)
 		UDPSock.sendto(msg, client.address)
 		print('Sent UPDATE_LIST to user ' + str(id))
-		wait_for_acknowledgement(c.TYPE_UPDATE_LIST, client.id, msg, client.address)
+		wait_for_acknowledgement([c.TYPE_UPDATE_LIST], client.id, msg, client.address)
 	return
 
 
@@ -194,7 +194,7 @@ def change_group(user_id, new_group_id):
 		msg = m.groupDissolution(0, old_group_id)
 		UDPSock.sendto(msg, user_left.address)
 
-		wait_for_acknowledgement(c.TYPE_GROUP_DISSOLUTION, user_left.id, msg, user_left.address)
+		wait_for_acknowledgement([c.TYPE_GROUP_DISSOLUTION], user_left.id, msg, user_left.address)
 
 		#delete old group in the group list
 		del groups[old_group_id]
@@ -267,7 +267,7 @@ def send_data():
 					print('sent CONNECTION_ACCEPT to client')
 
 					# call waiting for ack function
-					wait_for_acknowledgement(c.TYPE_CONNECTION_ACCEPT, client.id, response, client.address)
+					wait_for_acknowledgement([c.TYPE_CONNECTION_ACCEPT], client.id, response, client.address)
 
 					# update list of other users
 					updated_user = {client.id: client}
@@ -278,13 +278,13 @@ def send_data():
 					UDPSock.sendto(response, addr)
 					# call waiting for ack function
 					# client has no id yet so we are using the server id for him
-					wait_for_acknowledgement(c.TYPE_CONNECTION_REJECT, c.SERVER_ID, response, addr)
+					wait_for_acknowledgement([c.TYPE_CONNECTION_REJECT], c.SERVER_ID, response, addr)
 			else:
 				#send error code 1 for username already taken
 				response = m.createConnectionReject(0,c.ERROR_USERNAME_ALREADY_TAKEN)
 				UDPSock.sendto(response, addr)
 				# call waiting for ack function
-				wait_for_acknowledgement(c.TYPE_CONNECTION_REJECT, client.id, response, client.address)
+				wait_for_acknowledgement([c.TYPE_CONNECTION_REJECT], client.id, response, client.address)
 
 		elif msg_type == c.TYPE_DATA_MESSAGE:
 			# send acknowledgement
@@ -309,7 +309,7 @@ def send_data():
 			print('send USER_LIST_REQUEST to client ' + str(source_id))
 			UDPSock.sendto(response, clients[source_id].address)
 			# call waiting for ack funtion
-			wait_for_acknowledgement(c.TYPE_USER_LIST_RESPONSE, client.id, response, client.address)
+			wait_for_acknowledgement([c.TYPE_USER_LIST_RESPONSE], client.id, response, client.address)
 
 		elif msg_type == c.TYPE_GROUP_INVITATION_ACCEPT:
 			print(str(source_id) + ': GROUP_INVITATION_ACCEPT')
@@ -342,7 +342,7 @@ def send_data():
 											groups[group_id].type,
 											group_id)
 				UDPSock.sendto(msg, clients[creator_id].address)
-				wait_for_acknowledgement(c.TYPE_GROUP_CREATION_ACCEPT, creator_id, msg, clients[creator_id].address)
+				wait_for_acknowledgement([c.TYPE_GROUP_CREATION_ACCEPT], creator_id, msg, clients[creator_id].address)
 
 			else:
 				# remove user from invitation list
@@ -378,7 +378,7 @@ def send_data():
 				for id, client in clients.items():
 					#if client.id != source_id:
 					UDPSock.sendto(update_disconnection, client.address)
-					wait_for_acknowledgement(c.TYPE_UPDATE_DISCONNECTION, client.id, update_disconnection, client.address)
+					wait_for_acknowledgement([c.TYPE_UPDATE_DISCONNECTION], client.id, update_disconnection, client.address)
 					print('Sent UPDATE_DISCONNECTION to user ' + str(id))
 
 				# remove client from group and client lists
@@ -417,7 +417,7 @@ def send_data():
 													  id)
 				UDPSock.sendto(invitation, clients[id].address)
 				print('Sent GROUP_INVITATION_REQUEST to client ' + str(id))
-				wait_for_acknowledgement(c.TYPE_GROUP_INVITATION_REQUEST, id, invitation, clients[id].address)
+				wait_for_acknowledgement([c.TYPE_GROUP_INVITATION_REQUEST], id, invitation, clients[id].address)
 
 		elif msg_type == c.TYPE_GROUP_INVITATION_REJECT:
 			print(str(source_id) + ': GROUP_INVITATION_REJECT')
@@ -441,7 +441,7 @@ def send_data():
 											  group_id, member_id)
 
 			UDPSock.sendto(msg, clients[source_id].address)
-			wait_for_acknowledgement(c.TYPE_GROUP_INVITATION_REJECT, source_id, msg, clients[source_id].address)
+			wait_for_acknowledgement([c.TYPE_GROUP_INVITATION_REJECT], source_id, msg, clients[source_id].address)
 
 		elif msg_type == c.TYPE_GROUP_DISJOINT_REQUEST:
 			# send acknowledgement
