@@ -1,7 +1,7 @@
 import ctypes
 import socket
 import struct
-from core import *
+import core
 
 try:
 	from pprint import pprint
@@ -356,8 +356,7 @@ def unpack_user_list_response_content(msg):
 		ip = socket.inet_ntoa(struct.pack('>L',ip_int))
 		username = username.decode().strip()
 
-		user = User(client_id, username, client_group, (ip,port))
-		user_list[client_id] = user
+		user_list[client_id] = core.User(client_id, username, client_group, (ip,port))
 
 		offset += 16
 	return user_list

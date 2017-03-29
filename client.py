@@ -225,7 +225,6 @@ def read_keyboard():
 
 				if user_cmd == CMD_SEND:
 					text = user_input[len(CMD_SEND)+1:].encode('utf-8')
-					pprint(users)
 					msg = m.createDataMessage(0, self_id, users[self_id].group, text)
 					if self_group_type is m.GROUP_CENTRALIZED:
 						UDPsocket.sendto(msg, address_server)
@@ -264,9 +263,9 @@ def read_keyboard():
 						continue
 
 
-					sender_id = group_invitations[group_id]['creator']
+					sender_id = group_invitations[group_id].creator
 					# create acceptation message and send it
-					self_group_type = group_invitations[group_id]['type']
+					self_group_type = group_invitations[group_id].type
 					accept = m.groupInvitationAccept(0, sender_id, self_group_type,
 													 group_id, self_id)
 					UDPsocket.sendto(accept, address_server)
@@ -286,8 +285,8 @@ def read_keyboard():
 						continue
 
 					# create rejection message and send it
-					sender_id = group_invitations[group_id]['creator']
-					group_type = group_invitations[group_id]['type']
+					sender_id = group_invitations[group_id].creator
+					group_type = group_invitations[group_id].type
 					reject = m.groupInvitationReject(0,sender_id, group_type,
 													 group_id, self_id)
 					UDPsocket.sendto(reject, address_server)
@@ -303,7 +302,7 @@ def read_keyboard():
 							  "centralized or 1 for decentralized\n" % (user_input))
 						continue
 
-					own_group_invitation = {'type': args[0], 'members': args[1:]}
+					own_group_invitation = Group(type=args[0], members=args[1:])
 
 					# create request
 					msg = m.groupCreationRequest(0, self_id, args[0], args[1:])
@@ -425,8 +424,6 @@ def main_loop():
 
 
 			elif msg_type == m.TYPE_DATA_MESSAGE:
-
-
 				content = header['content']
 				text = content[2:].decode()
 				source = users[source_id]
@@ -444,12 +441,11 @@ def main_loop():
 					UDPsocket.sendto(response, users[source_id].address)
 
 
-
 			elif msg_type == m.TYPE_GROUP_CREATION_ACCEPT:
 				print("Your group was created.")
 
 				# change to new group mode
-				self_group_type = own_group_invitation['type']
+				self_group_type = own_group_invitation.type
 				# send ack
 				response = m.acknowledgement(msg_type, 0, self_id)
 				UDPsocket.sendto(response, address_server)
@@ -522,10 +518,8 @@ def main_loop():
 
 			elif msg_type == m.TYPE_GROUP_INVITATION_REQUEST:
 				group_type, group_id, member_id = m.unpack_group_invitation_request(data)
-				invitation = {}
-				invitation['type']= group_type
-				invitation['id']= group_id
-				invitation['creator']= source_id
+				invitation = Group(id=group_id, creator_id=source_id,
+								   type=group_type, members=[])
 				# add invitation to invitations in stand-by
 				group_invitations[group_id] = invitation
 

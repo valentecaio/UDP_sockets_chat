@@ -20,8 +20,8 @@ ST_CONNECTED = 1
 
 
 clients = {}
-groups = {m.PUBLIC_GROUP_ID: {'creator': m.NOBODY_ID, 'id': m.PUBLIC_GROUP_ID,
-							  'type': m.GROUP_CENTRALIZED, 'members': []}}
+groups = {m.PUBLIC_GROUP_ID: Group(id=m.PUBLIC_GROUP_ID, creator_id=m.NOBODY_ID,
+								   type=m.GROUP_CENTRALIZED, members=[])}
 group_invitations = {}
 next_client_id = 1
 next_group_id = 2
@@ -142,7 +142,7 @@ def connect_client(addr, username):
 	clients[client_id] = client
 
 	# add new client to public group
-	groups[m.PUBLIC_GROUP_ID]['members'].append(client)
+	groups[m.PUBLIC_GROUP_ID].members.append(client)
 
 	print('Connected to a new client: \t', client)
 	return client
@@ -151,7 +151,7 @@ def connect_client(addr, username):
 # receive a coded message and send it to receivers list
 def send_message(msg, group_id):
 	global groups
-	receivers = groups[group_id]['members']
+	receivers = groups[group_id].members
 	for client in receivers:
 		UDPSock.sendto(msg, client.address)
 		print("Sent msg to client " + str(client))
@@ -179,20 +179,20 @@ def change_group(user_id, new_group_id):
 	old_group_id = user.group
 	changed_users = {}
 
-	groups[old_group_id]['members'].remove(user)
-	groups[new_group_id]['members'].append(user)
+	groups[old_group_id].members.remove(user)
+	groups[new_group_id].members.append(user)
 
 	new_group = groups[new_group_id]
 	old_group = groups[old_group_id]
 
-	user.group = new_group['id']
+	user.group = new_group.id
 
 	# If only one user remains delete group and send a group dissolution,
 	# put that guy in the public group an inform everybody about the changes.
-	if len(old_group['members']) == m.PUBLIC_GROUP_ID and old_group_id != m.PUBLIC_GROUP_ID:
+	if len(old_group.members) == m.PUBLIC_GROUP_ID and old_group_id != m.PUBLIC_GROUP_ID:
 
 		#only member in the old group
-		user_left = old_group['members'][0]
+		user_left = old_group.members[0]
 
 		#send group dissolution
 		msg = m.groupDissolution(0, old_group_id)
@@ -204,7 +204,7 @@ def change_group(user_id, new_group_id):
 		del groups[old_group_id]
 
 		#change group of old user to public group
-		groups[m.PUBLIC_GROUP_ID]['members'].append(user_left)
+		groups[m.PUBLIC_GROUP_ID].members.append(user_left)
 		user_left.group=m.PUBLIC_GROUP_ID
 
 		#update changes for everyone
@@ -337,23 +337,20 @@ def send_data():
 				if group_id not in groups:
 
 					# create new group
-					new_group = {}
-					new_group['creator']= source_id
-					new_group['id'] = group_id
-					new_group['type'] = group_type
-					new_group['members'] = []
+					new_group = Group(id=group_id, creator_id=source_id,
+									  type=group_type, members=[])
 					groups[group_id] = new_group
 
 					# remove user from invitation list
-					group_invitations[group_id]['members'].remove(member_id)
+					group_invitations[group_id].members.remove(member_id)
 
 					# change creator to new group
-					creator_id = groups[group_id]['creator']
+					creator_id = groups[group_id].creator
 					change_group(creator_id, group_id)
 
 					# send an creation accept to creator
 					msg = m.groupCreationAccept(0, creator_id,
-												groups[group_id]['type'],
+												groups[group_id].type,
 												group_id)
 					UDPSock.sendto(msg, clients[creator_id].address)
 					wait_for_acknowledgement(m.TYPE_GROUP_CREATION_ACCEPT, creator_id, msg, clients[creator_id].address)
@@ -361,10 +358,10 @@ def send_data():
 
 				else:
 					# remove user from invitation list
-					group_invitations[group_id]['members'].remove(member_id)
+					group_invitations[group_id].members.remove(member_id)
 
 					#delete invitation if everybody responded
-				if len(group_invitations[group_id]['members']) == 0:
+				if len(group_invitations[group_id].members) == 0:
 					del group_invitations[group_id]
 					print('invitation has been deleted')
 
@@ -397,7 +394,7 @@ def send_data():
 						print('Sent UPDATE_DISCONNECTION to user ' + str(id))
 
 					# remove client from group and client lists
-					groups[m.PUBLIC_GROUP_ID]['members'].remove(client)
+					groups[m.PUBLIC_GROUP_ID].members.remove(client)
 					del clients[source_id]
 					pprint(clients)
 
@@ -424,10 +421,8 @@ def send_data():
 				next_group_id += 1
 
 				# add group to stand-by invitations dict
-				group_invitations[group_id] = {'creator': source_id,
-											   'id': group_id,
-											   'type': group_type,
-											   'members': members}
+				group_invitations[group_id] = Group(id=group_id, creator_id=source_id,
+													type=group_type, members=members)
 
 				# invite members to group
 				for id in members:
@@ -444,19 +439,19 @@ def send_data():
 					m.unpack_group_invitation_accept(data)
 
 				#delete this member in the group_invitation dict
-				group_invitations[group_id]['members'].remove(member_id)
+				group_invitations[group_id].members.remove(member_id)
 
 				# delete group from group_invitation dict if nobody accepted
-				if len(group_invitations[group_id]['members']) == 0 and group_id not in groups:
-					msg = m.groupInvitationReject(0, group_invitations[group_id]['creator'],                            # put flag 1 if last user rejected
-											  group_invitations[group_id]['type'],
+				if len(group_invitations[group_id].members) == 0 and group_id not in groups:
+					msg = m.groupInvitationReject(0, group_invitations[group_id].creator,                            # put flag 1 if last user rejected
+											  group_invitations[group_id].type,
 										  group_id, member_id, 1)
 					del group_invitations[group_id]
 					print('invitation has been deleted')
 
 				else:
-					msg = m.groupInvitationReject(0, group_invitations[group_id]['creator'],							# leave flag 0 if user that rejected was not the last one
-												  group_invitations[group_id]['type'],
+					msg = m.groupInvitationReject(0, group_invitations[group_id].creator,							# leave flag 0 if user that rejected was not the last one
+												  group_invitations[group_id].type,
 												  group_id, member_id)
 
 				UDPSock.sendto(msg, clients[source_id].address)

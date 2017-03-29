@@ -1,3 +1,5 @@
+import messages as m
+
 class Message():
 	def __init__(self, data, address):
 		self.data = data
@@ -20,3 +22,22 @@ class User():
 
 	def __str__(self):
 		return "%s [%s]" % (self.username, self.id)
+
+class Group():
+	def __init__(self, type=m.GROUP_CENTRALIZED, members=[],
+				 id='No ID', creator_id='No creator'):
+		self.id = id
+		self.creator = creator_id
+		self.type = type
+		self.members = members
+
+	def __repr__(self):
+		if self.id == m.PUBLIC_GROUP_ID:
+			type = 'PUBLIC'
+		elif self.type == m.GROUP_CENTRALIZED:
+			type = 'CENTRALIZED'
+		else:
+			type = 'DECENTRALIZED'
+
+		return "[id: %s, creator: %s, type: %s, members: %s]" \
+			   % (self.id, self.creator, type, self.members)
