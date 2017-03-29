@@ -476,7 +476,7 @@ def main_loop():
 
 				#send Acknowledgment
 				#source id is set to server source id to recognize user who has no source id yet(not connected).
-				response = m.acknowledgement(msg_type, 0, 0x00)
+				response = m.acknowledgement(msg_type, 0, c.SERVER_ID)
 				UDPsocket.sendto(response, address_server)
 
 		elif msg_type ==  c.TYPE_GROUP_INVITATION_REQUEST:
